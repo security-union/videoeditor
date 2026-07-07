@@ -178,9 +178,9 @@ built-ins. A pack template with the same name as a built-in overrides it.
 Check what an episode resolves with `videoeditor pack list <episode>`.
 
 **Don't hand-write frame-by-frame animation.** Open Claude Code in this
-directory — the bundled CLAUDE.md turns it into this pack's template
-engineer: describe the look and the beats, and it writes, renders, and
-frame-QAs the template with you.
+directory — `templates/CLAUDE.md` is the authoring contract that turns it
+into this pack's template engineer: describe the look and the beats, and it
+writes, renders, and frame-QAs the template with you.
 "#;
 
 /// Scaffold a self-contained pack: example template + vendored scene runtime.
@@ -201,8 +201,13 @@ pub fn init(dir: &Path) -> Result<()> {
     }
 
     fs::write(scenes.join("my-scene.html"), EXAMPLE_TEMPLATE)?;
-    fs::write(dir.join("README.md"), PACK_README)?;
-    fs::write(dir.join("CLAUDE.md"), PACK_CLAUDE_MD)?;
+    // The authoring contract lives at templates/CLAUDE.md — nested so it
+    // scopes to template work and NEVER collides with an episode's own
+    // root CLAUDE.md (pack init runs on episode dirs too).
+    fs::write(dir.join("templates/CLAUDE.md"), PACK_CLAUDE_MD)?;
+    if !dir.join("README.md").exists() {
+        fs::write(dir.join("README.md"), PACK_README)?;
+    }
     let usage = if dir.join("script.md").exists() {
         "this is an episode dir — its templates/ is resolution layer 1, no `packs:` line needed"
     } else {
@@ -211,8 +216,8 @@ pub fn init(dir: &Path) -> Result<()> {
     println!(
         "pack: scaffolded {} (example template: my-scene)\n\
          pack: {usage}\n\
-         pack: don't hand-write animation — open Claude Code here; CLAUDE.md \
-         makes it this pack's template engineer",
+         pack: don't hand-write animation — open Claude Code here; \
+         templates/CLAUDE.md makes it the template engineer",
         dir.display()
     );
     Ok(())

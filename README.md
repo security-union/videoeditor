@@ -107,11 +107,13 @@ without rebuilding.
 ### 4. Let Claude direct
 
 This tool is designed to pair with **[Claude Code](https://claude.com/claude-code)**
-as the director: the repo ships [PRODUCTION.md](PRODUCTION.md) (the craft
-rulebook — real benchmark receipts, narration fit-checks, congruence rules,
-frame-QA ritual) and a [CLAUDE.md](CLAUDE.md) that teaches the pipeline.
-Open Claude Code in your episode directory (keep a copy of PRODUCTION.md
-next to it) and ask for an episode:
+as the director, and it wires the session up by itself: the binary embeds
+the canonical rulebook (`videoeditor guide` prints it — pipeline, grammar,
+the director loop, craft rules), `videoeditor -h` points agents at it,
+`videoeditor new` drops a thin CLAUDE.md into every episode that defers to
+it, and `pack init` writes the template-authoring contract to the pack's
+`templates/CLAUDE.md`. So: scaffold, open Claude Code in the episode
+directory, and ask:
 
 > "Make a 25-second short: Rust vs Go parsing a 1GB JSON file. Run a real
 > benchmark first, then script it, voice it, render it, and QA the frames."
@@ -257,8 +259,9 @@ A format is a narrative spine over the same machinery: `spec.md` (the rules) +
 duel: announcement, tip, story.
 
 Production craft — how to make these videos actually good (real benchmark
-receipts, congruence between audio and screen, pacing, review ritual) — lives
-in [PRODUCTION.md](PRODUCTION.md).
+receipts, congruence between audio and screen, pacing, review ritual) — is
+embedded in the binary: `videoeditor guide` prints the canonical rulebook
+(source: [crates/videoeditor/guide.md](crates/videoeditor/guide.md)).
 
 ## Episode layout
 

@@ -127,7 +127,7 @@ impl Episode {
     ///
     /// Returns one human-readable warning per violation (empty = fits).
     /// Recipe when it fires: scene duration = clip `at` + audio/tempo + hold,
-    /// then re-place downstream `at`s — see PRODUCTION.md Rule 5.
+    /// then re-place downstream `at`s — see `videoeditor guide`.
     pub fn fit_check(&self, manifest: &[ClipInfo]) -> Vec<String> {
         let mut spans: Vec<(String, f64, f64)> = Vec::new(); // (name, abs start, abs end)
         for scene in &self.scenes {

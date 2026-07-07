@@ -5,7 +5,7 @@ The "X vs Y with receipts" dev short. Reverse-engineered from a viral
 then evolved into a receipts-driven mini-explainer.
 
 > The channel-wide production rules (REAL experiments, on-screen code
-> standards, review process, pacing) live in PRODUCTION.md and
+> standards, review process, pacing) live in `videoeditor guide` and
 > override anything here.
 
 > HOOK (tribal matchup) → GOOD (approve-meme + receipts) → FANCY (flex-meme +

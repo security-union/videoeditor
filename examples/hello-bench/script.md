@@ -14,7 +14,8 @@ The starter episode: four scene templates, SVG-only assets (nothing binary,
 nothing licensed), one narration voice ("Adam", an ElevenLabs public preset).
 
 ⚠ The benchmark numbers below are ILLUSTRATIVE so the demo renders out of the
-box. Before you publish anything real, follow PRODUCTION.md Rule 1: every
+box. Before you publish anything real, follow the receipts rule in
+`videoeditor guide`: every
 number on screen comes from a reproducible experiment you actually ran.
 
 Render it:

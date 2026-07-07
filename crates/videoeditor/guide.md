@@ -1,8 +1,9 @@
-# videoeditor — the director's guide (for AI agents and humans)
+# videoeditor — the director's guide
 
 You are directing a scripted short video: `script.md` in → vertical mp4 out.
-This guide is embedded in the binary (`videoeditor guide`) so it is always
-available, even far from the source repo.
+This is the canonical rulebook, embedded in the binary — `videoeditor guide`
+prints it anywhere, repo or not. Everything else (episode CLAUDE.md files,
+READMEs) points here; if another doc disagrees with this one, this one wins.
 
 ## The pipeline
 
@@ -13,6 +14,7 @@ videoeditor tts <dir>          narration via ElevenLabs (needs ELEVENLABS_API_KE
 videoeditor render <dir> [--scene name]      headless-Chrome frames → scene mp4s
 videoeditor assemble <dir>     concat + narration@offsets + music → build/final.mp4
 videoeditor build <dir>        tts + render + assemble
+videoeditor analyze <ref.mp4>  transcript + scene-cut timing table of a reference
 ```
 
 Discovery: `videoeditor templates [dir]` lists every scene template visible
@@ -45,14 +47,13 @@ One idea per beat. The screen holds the digits; the voice tells the story.
 Scene `duration` is authoritative. `at` = seconds from scene start. Paths are
 episode-relative. `<!-- comments -->` and unknown `[MARKERS:]` are ignored.
 
-## The director loop (do these IN ORDER, every time)
+## The director loop (in order, every time)
 
-1. **Script** — casual, deadpan narration; at most ONE rounded number spoken
-   per beat; every number shown on screen comes from a real, reproducible
-   experiment (never invent benchmarks).
+1. **Script** per the craft rules below.
 2. **`tts`** — then READ the ⚠ fit-check warnings. Narration overlap is a
    real defect (two voices at once). Recompute: scene duration = clip `at` +
-   measured clip length + hold; re-place downstream `at`s. Re-run until clean.
+   measured clip length ÷ tempo + hold; re-place downstream `at`s. Re-run
+   until clean. Recompute after EVERY voice or text change.
 3. **Congruence** — every visual cue (`*_at` keys, pointer cues, pops) lands
    when the narration says the thing. Cue time = clip `at` + clip length ×
    (char offset of the keyword ÷ clip text length).
@@ -60,17 +61,74 @@ episode-relative. `<!-- comments -->` and unknown `[MARKERS:]` are ignored.
    `<dir>/build/frames/<scene>/` (they are PNGs; read them). Heed ⚠ template
    warnings (e.g. clipped code). Layout bugs only show in frames.
 5. **`assemble`**, then watch `build/final.mp4` end to end before calling it
-   done. Anything readable must hold ≥1.5s; scoreboards ~4–5s.
+   done.
+
+## Craft rules
+
+**Receipts are REAL experiments — non-negotiable.** Every number on screen
+comes from a reproducible experiment committed next to the episode (e.g.
+`assets/bench/` with a one-command `run.sh`): best bench tool per ecosystem,
+comparable discipline on all sides (≥30 samples), fully optimized builds
+(`lto = true`, `codegen-units = 1` — optimization level can flip a result),
+symmetric pure workloads, both axes (time AND memory, same metric both
+sides), round AGAINST yourself, corroborate implausible numbers before
+shipping, and explain surprises IN the clip. Keep a bench README with machine
+specs, results, methodology, honesty notes. Slightly contestable numbers are
+a feature (Cunningham's Law drives comments); wrong numbers are not.
+
+**On-screen code** must compile at a freeze-frame. Never show `.unwrap()` —
+display code uses `fn main() -> anyhow::Result<()>` + `?`. No filler
+statements; end panels on a strong line (a gag comment beats boilerplate).
+Display snippets are minimal but honest versions of the real bench code.
+
+**Narration** is casual, conversational, deadpan — contractions fine, no
+stiff constructions. Simple English; speak at most ONE rounded number per
+beat and never read stat strings aloud — the screen holds the digits. Add
+human stakes. Don't rush: let beats breathe; duration follows pace. Dunk the
+loser explicitly — longest rant, shortest mercy. TTS: low stability reads
+livelier; never `atempo` ≥ 1.2 (squeezed pauses sound robotic); write
+flowing sentences — fragments read staccato.
+
+**Visuals**: one moving element per beat — sequential motion reads clean.
+Anything the viewer must read holds ≥1.5s; tables ~3s; scoreboards ~4–5s.
+Design for a phone at arm's length (1080×1920): min ~34px code, ~60px
+labels, ~90px headlines. Accumulating benchmark tables stay in the same
+position across scenes so rows are comparable.
+
+**Review before render**: run two independent passes over script + code +
+bench — a methodology skeptic (compilability, false claims, roast-magnets)
+and a shareability critic (what's on screen for muted viewers, the
+screenshottable frame). Fix what they flag; the director's word wins.
+
+**Timestamps for learners**: ship an `education.json` next to `script.md` —
+one entry per explanation, the time it STARTS plus the exact question it
+answers, phrased the way a learner would search it. Derive times from the
+assembled timeline (`parse` scene starts + clip `at`s + keyword cues in the
+measured audio) — real, never guessed; regenerate whenever timings change.
+
+**Hygiene**: never commit renders (`build/`), generated narration (`audio/`),
+or API keys. Committed media assets go through git-lfs.
 
 ## Templates
 
-Prefer existing templates (see `videoeditor templates`). To create or
-restyle: `videoeditor pack init <dir>` scaffolds a pack whose CLAUDE.md
-teaches template authoring — the (data, t) pure-function contract, the
-animation building blocks in `_lib/scene.js` (pop, enter, slam, shake,
-pulse, count-up, word-pop, typewriter, Ken Burns, easings), self-diagnostics
-(`sceneWarnings`), and the discovery block (`template-info`). Do not
-hand-roll animation curves; compose the blocks.
+Prefer existing templates (`videoeditor templates`). For a custom look,
+`videoeditor pack init <dir>` scaffolds a pack — works on an episode dir too
+(its `templates/` is resolution layer 1). The pack's `templates/CLAUDE.md`
+is the authoring contract: the (data, t) pure-function rules, the animation
+building blocks in `_lib/scene.js` (pop, enter, slam, shake, pulse, count-up,
+word-pop, typewriter, Ken Burns, easings), self-diagnostics (`sceneWarnings`),
+and the discovery block (`template-info`). Do not hand-roll animation curves;
+compose the blocks.
+
+## Gotchas
+
+- Scene indices prefix rendered files (`build/scenes/NN_name.mp4`) —
+  inserting a scene shifts them; re-render or rename.
+- Moving a clip between scenes renames its audio key
+  (`<scene>__<clip>.mp3`) — `mv` the file to keep a good take.
+- TTS takes vary run-to-run at low stability — re-roll a slow take
+  (`tts <dir> --clip <name> --force`) before rewriting script text.
+- Iterate visuals on ONE scene (`render --scene X`); full renders come last.
 
 ## Env
 

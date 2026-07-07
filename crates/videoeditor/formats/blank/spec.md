@@ -10,4 +10,4 @@ including your own (see docs/templates.md; `videoeditor pack init <episode>`
 gives this video unique templates).
 
 After `videoeditor tts`, heed the ⚠ fit-check warnings and recompute scene
-durations: duration = clip `at` + measured audio + hold (PRODUCTION.md Rule 5).
+durations: duration = clip `at` + measured audio + hold (`videoeditor guide`).

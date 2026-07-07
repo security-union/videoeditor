@@ -22,7 +22,7 @@ source whenever a template doesn't come from the built-ins.
 ```
 my-channel/
 ├── brand-pack/                    # your identity — make it its own git repo
-│   ├── CLAUDE.md                  # ← Claude authors templates here with you
+│   ├── templates/CLAUDE.md        # ← the authoring contract Claude follows
 │   └── templates/scenes/
 │       ├── _lib/  _vendor/        # vendored scene runtime (pack renders standalone)
 │       ├── title-card.html        # overrides the built-in title card
@@ -52,7 +52,9 @@ videoeditor pack init ep001-rust-vs-go
 
 Both scaffold `templates/scenes/` with an example template, the vendored
 `_lib`/`_vendor` scene runtime (templates reference it relatively, so it must
-sit next to them), a README, and a `CLAUDE.md`.
+sit next to them), a README, and the authoring contract at
+`templates/CLAUDE.md` (nested, so it never collides with an episode's own
+CLAUDE.md).
 
 Then declare shared packs in the episode's `script.md` frontmatter:
 
@@ -73,8 +75,8 @@ injects the merged `[DATA:]` map, calls `renderScene(t)` per frame, and
 screenshots. No CSS animations, no timers — every pixel derives from the
 input state, which is what makes renders deterministic.
 
-**You should not hand-roll that.** `pack init` drops a `CLAUDE.md` into the
-pack that makes [Claude Code](https://claude.com/claude-code) its template
+**You should not hand-roll that.** `pack init` writes `templates/CLAUDE.md`,
+which makes [Claude Code](https://claude.com/claude-code) the pack's template
 engineer: open Claude Code in the pack, describe the look and the beats
 ("CRT terminal, green phosphor, the score slams in when the voice says
 'benchmark'"), and Claude writes the template, renders one scene, reads the

@@ -36,7 +36,10 @@ vertical video out via headless Chrome + ffmpeg + ElevenLabs).
 - Templates resolve in layers: episode dir → frontmatter `packs:` →
   `$VIDEOEDITOR_PACK_PATH` → built-ins (`videoeditor pack list <ep>` shows
   provenance). Users never hand-roll templates — `pack init` scaffolds a
-  pack with its own CLAUDE.md; author templates WITH the user per that file.
+  pack whose `templates/CLAUDE.md` is the authoring contract; author
+  templates WITH the user per that file.
 - Releases go through release-plz (PRs to main; never bump versions by hand).
 - Never commit media renders or API keys. Committed images go through git-lfs.
-- Production craft for episode content lives in PRODUCTION.md.
+- Production craft for episode content lives in crates/videoeditor/guide.md
+  (embedded; printed by `videoeditor guide`) — the single source of truth.
+  Never duplicate its rules into other docs; point at the command instead.

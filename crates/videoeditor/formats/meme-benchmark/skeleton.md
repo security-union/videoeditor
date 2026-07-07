@@ -15,7 +15,7 @@ music_gain_db: -20
      replace assets and text as the episode takes shape. Drop a lofi bed at
      assets/music/bed.mp3 (missing music is skipped with a note).
      After `videoeditor tts`, heed the ⚠ fit-check warnings: scene duration
-     = clip at + clip/tempo + hold. See PRODUCTION.md. -->
+     = clip at + clip/tempo + hold. See `videoeditor guide`. -->
 
 [SCENE: title | template=title-card duration=2.6]
 [DATA: left=assets/logos/x.svg right=assets/logos/y.svg left_label=X right_label=Y]

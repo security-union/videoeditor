@@ -76,29 +76,15 @@ fn extract(dir: &Dir, to: &Path) -> Result<()> {
     Ok(())
 }
 
-const EPISODE_CLAUDE_MD: &str = r#"# CLAUDE.md — you are this episode's director
+const EPISODE_CLAUDE_MD: &str = r#"# CLAUDE.md
 
-This directory is a videoeditor episode: `script.md` in → `build/final.mp4`
-out. **Run `videoeditor guide` first** — it prints the embedded director's
-guide (pipeline, script grammar, the full working loop).
+This directory is a videoeditor episode (`script.md` in → `build/final.mp4`
+out) and you are its director.
 
-The non-negotiables while you work:
-
-1. After EVERY `videoeditor tts`, read the ⚠ fit-check warnings and recompute
-   scene durations from the measured clips (duration = clip `at` + clip
-   length + hold). Overlapping narration is a defect, not a style.
-2. Congruence: every visual cue (`*_at` keys, pointer, pops) lands when the
-   narration says the thing. Recompute cues after every voice/text change.
-3. Render one scene at a time (`videoeditor render . --scene <name>`) and
-   LOOK at the frames in `build/frames/<scene>/` — they are PNGs, read them.
-   Heed ⚠ template warnings.
-4. Numbers on screen come from real, reproducible experiments. Never invent
-   a benchmark.
-5. Browse templates before building: `videoeditor templates .` and
-   `videoeditor preview`. For a custom look, `videoeditor pack init .`
-   scaffolds this episode's own templates (its CLAUDE.md teaches authoring —
-   compose the `_lib/scene.js` animation blocks, don't hand-roll curves).
-6. Watch `build/final.mp4` end to end before calling anything done.
+Before doing anything else, run `videoeditor guide` and follow it exactly —
+it is the canonical rulebook (pipeline, script grammar, the director loop,
+craft rules). It is embedded in the binary, so it is always current for the
+tool version you're running; nothing in this file overrides it.
 "#;
 
 /// Scaffold a new episode directory from a format skeleton. Formats ship
