@@ -72,6 +72,15 @@
       devShells = forAllSystems (pkgs:
         let
           pwBrowsers = pkgs.playwright-driver.browsers-chromium;
+          # `videoeditor` inside the dev shell = cargo run over THIS checkout,
+          # so the command always matches the source you're editing (a
+          # store-built binary here would silently go stale). First call
+          # compiles; cargo caches after that.
+          videoeditorDev = pkgs.writeShellScriptBin "videoeditor" ''
+            exec cargo run --release --quiet \
+              --manifest-path "''${VIDEOEDITOR_SRC:?nix develop must start at the repo root}/Cargo.toml" \
+              -p videoeditor -- "$@"
+          '';
         in
         {
           default = pkgs.mkShell {
@@ -91,10 +100,14 @@
               git
               just
               jq
+
+              videoeditorDev
             ] ++ pkgs.lib.optionals pkgs.stdenv.isLinux [ pkgs.chromium ];
 
             shellHook = ''
+              export VIDEOEDITOR_SRC="$PWD"
               echo "videoeditor dev shell — rustc $(rustc --version | cut -d' ' -f2), ffmpeg $(ffmpeg -version 2>/dev/null | head -1 | cut -d' ' -f3)"
+              echo "\`videoeditor\` builds+runs this checkout (cargo run); first call compiles"
               # Rendering uses the same pinned browser as the installed
               # package: chromium from nixpkgs on Linux (found via PATH),
               # playwright's Chrome for Testing on darwin. CHROME_BIN overrides.
