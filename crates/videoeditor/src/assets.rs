@@ -166,11 +166,18 @@ pub fn scaffold(dir: &Path, format: &str) -> Result<()> {
     if !dir.join(".claude/commands/direct.md").exists() {
         fs::write(dir.join(".claude/commands/direct.md"), DIRECT_COMMAND)?;
     }
+    // Claude Code only loads the CLAUDE.md / commands of the directory it
+    // STARTS in — print a copy-pasteable next step, not "open Claude here".
     println!(
-        "scaffolded {} from format `{format}`\n\
-         next: open Claude Code here and type /direct — it interviews you and\n\
-         drives script → voice → render → final.mp4 (manual path: `videoeditor guide`)",
-        dir.display()
+        "scaffolded {dir} from format `{format}`\n\
+         \n\
+         next:\n\
+         \n\
+             cd {dir} && claude\n\
+         \n\
+         then type /direct — it interviews you and drives script → voice →\n\
+         render → final.mp4. (Manual path: `videoeditor guide`.)",
+        dir = dir.display()
     );
     Ok(())
 }

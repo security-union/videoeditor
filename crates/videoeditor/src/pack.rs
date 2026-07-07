@@ -214,11 +214,11 @@ pub fn init(dir: &Path) -> Result<()> {
         "declare it in an episode with `packs: <path-to-pack>` frontmatter"
     };
     println!(
-        "pack: scaffolded {} (example template: my-scene)\n\
+        "pack: scaffolded {dir} (example template: my-scene)\n\
          pack: {usage}\n\
-         pack: don't hand-write animation — open Claude Code here; \
+         pack: don't hand-write animation — run `cd {dir} && claude`; \
          templates/CLAUDE.md makes it the template engineer",
-        dir.display()
+        dir = dir.display()
     );
     Ok(())
 }
