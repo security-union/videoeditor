@@ -1,0 +1,56 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="_lib/meme.css">
+<style>
+  .stage {
+    width: 100vw; height: 100vh; background: #000;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 36px;
+  }
+  .board-title { font-size: 88px; }
+  .row {
+    display: flex; align-items: baseline; gap: 40px;
+    font-family: 'Menlo', 'SF Mono', monospace;
+  }
+  .row .name  { font-size: 64px; color: #9aa5b1; min-width: 460px; text-align: right; }
+  .row .value { font-size: 96px; }
+  .row.winner .value { color: #7ee787; }
+  .row.mid    .value { color: #e3b341; }
+  .row.loser  .value { color: #ff7b72; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="board-title meme-text" id="boardTitle"></div>
+</div>
+<script src="_lib/scene.js"></script>
+<script>
+  // DATA: title="FINAL SCORE (ms)" rows="serde_json 78|simd-json 83|JSON.parse 168"
+  // Row order = ranking; first row styled winner, last row loser.
+  const rowEls = [];
+
+  window.setupScene = (d) => {
+    boardTitle.textContent = d.title || 'FINAL SCORE';
+    const rows = String(d.rows || '').split('|').filter(Boolean);
+    rows.forEach((r, i) => {
+      const parts = r.trim().split(/\s+/);
+      const value = parts.pop();
+      const row = document.createElement('div');
+      row.className = 'row ' + (i === 0 ? 'winner' : i === rows.length - 1 ? 'loser' : 'mid');
+      row.innerHTML = '<span class="name"></span><span class="value meme-text"></span>';
+      row.querySelector('.name').textContent = parts.join(' ');
+      row.querySelector('.value').textContent = value;
+      stage.appendChild(row);
+      rowEls.push(row);
+    });
+  };
+
+  window.renderScene = (t) => {
+    applyPop(boardTitle, 0, t);
+    rowEls.forEach((row, i) => applyPop(row, 120 + i * 120, t));
+  };
+</script>
+</body>
+</html>

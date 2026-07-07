@@ -1,0 +1,16 @@
+[package]
+name = "videoeditor-media"
+description = "ffmpeg layer for videoeditor: scene encodes, concat, audio mix, scene-cut detection"
+keywords = ["video", "ffmpeg", "encoding", "audio"]
+categories = ["multimedia::video", "multimedia::audio"]
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+serde_json.workspace = true
+videoeditor-timeline.workspace = true

@@ -1,0 +1,18 @@
+[package]
+name = "videoeditor-voice"
+description = "ElevenLabs TTS and STT client for videoeditor: narration synthesis and reference transcription"
+keywords = ["tts", "stt", "elevenlabs", "narration", "video"]
+categories = ["multimedia::audio", "api-bindings"]
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+serde_json.workspace = true
+ureq.workspace = true
+videoeditor-media.workspace = true
+videoeditor-timeline.workspace = true

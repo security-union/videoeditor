@@ -1,0 +1,31 @@
+# CLAUDE.md
+
+Rust workspace: `videoeditor` — scripted short-video renderer (markdown in,
+vertical video out via headless Chrome + ffmpeg + ElevenLabs).
+
+## Layout
+
+- `crates/videoeditor` — CLI + scene orchestration; embeds `templates/` and
+  `formats/` (extracted to `~/.cache/videoeditor/<version>/` at runtime;
+  `VIDEOEDITOR_ROOT` overrides).
+- `crates/videoeditor-timeline` — script.md parser → `Episode`/`Scene`/`Chunk`.
+- `crates/videoeditor-chrome` — CDP driver (long-lived headless Chrome; NEVER
+  single-shot `--screenshot`, it hangs on macOS).
+- `crates/videoeditor-media` — all ffmpeg/ffprobe invocations + assembly.
+- `crates/videoeditor-voice` — ElevenLabs TTS/STT (`ELEVENLABS_API_KEY`).
+- `examples/hello-bench` — smallest end-to-end episode; keep it rendering.
+
+## Commands
+
+- `make check` — clippy -D warnings + fmt --check (CI-gating).
+- `cargo test --workspace` — parser tests live in videoeditor-timeline.
+- `cargo run -p videoeditor -- build examples/hello-bench` — end-to-end smoke
+  (needs Chrome, ffmpeg, ELEVENLABS_API_KEY).
+
+## Rules
+
+- Scene templates are PURE functions of (data, t) — no CSS animations, no
+  timers, no network. Everything derives from `SCENE.d` and `SCENE.t`.
+- Releases go through release-plz (PRs to main; never bump versions by hand).
+- Never commit media renders or API keys. Committed images go through git-lfs.
+- Production craft for episode content lives in PRODUCTION.md.

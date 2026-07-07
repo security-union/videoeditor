@@ -1,0 +1,13 @@
+[workspace]
+changelog_update = true
+git_release_enable = false
+git_tag_enable = false
+semver_check = true
+
+# The CLI crate is the user-facing release: it gets the GitHub release + tag.
+[[package]]
+name = "videoeditor"
+git_release_enable = true
+git_tag_enable = true
+git_tag_name = "v{{ version }}"
+git_release_name = "v{{ version }}"

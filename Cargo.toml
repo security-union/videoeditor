@@ -1,0 +1,29 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT"
+repository = "https://github.com/security-union/videoeditor"
+authors = ["Dario Lencina <dario@securityunion.dev>"]
+
+[workspace.dependencies]
+anyhow = "1"
+base64 = "0.22"
+clap = { version = "4", features = ["derive"] }
+include_dir = "0.7"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tungstenite = "0.24"
+ureq = { version = "2", features = ["json"] }
+
+videoeditor-chrome = { version = "0.1.0", path = "crates/videoeditor-chrome" }
+videoeditor-media = { version = "0.1.0", path = "crates/videoeditor-media" }
+videoeditor-timeline = { version = "0.1.0", path = "crates/videoeditor-timeline" }
+videoeditor-voice = { version = "0.1.0", path = "crates/videoeditor-voice" }
+
+[profile.release]
+strip = true

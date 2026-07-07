@@ -1,0 +1,19 @@
+# build outputs
+target/
+build/
+
+# episode render artifacts (never commit produced videos)
+examples/*/build/
+examples/*/audio/
+*.mp4
+*.mov
+*.mp3
+*.wav
+*.m4a
+
+# env / editor
+.direnv/
+.envrc
+.env
+.DS_Store
+*.log

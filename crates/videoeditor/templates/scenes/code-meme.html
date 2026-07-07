@@ -1,0 +1,387 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="_lib/meme.css">
+<link rel="stylesheet" href="_vendor/tokyo-night-dark.min.css">
+<style>
+  .stage { width: 100vw; height: 100vh; display: flex; flex-direction: column; background: #000; }
+
+  .code-panel {
+    flex: 0 0 auto; height: 55%;
+    background: radial-gradient(circle at 30% 15%, #15151f 0%, #0a0a10 70%);
+    display: flex; align-items: center;
+    padding: 40px 30px 40px 70px; box-sizing: border-box;
+    position: relative;
+    perspective: 1600px;
+  }
+  /* floating card — gets the 3D tilt + Ken Burns drift from renderScene */
+  .code-card {
+    width: 100%;
+    background: #16161e; border-radius: 22px;
+    padding: 44px 40px;
+    box-shadow: 0 34px 90px rgba(0, 0, 0, 0.72), 0 6px 18px rgba(0, 0, 0, 0.5);
+    transform-origin: 50% 50%;
+  }
+  pre { margin: 0; width: 100%; }
+  code.hljs {
+    background: transparent !important;
+    font-family: 'Menlo', 'SF Mono', 'Consolas', monospace;
+    font-size: 40px; line-height: 1.42;
+    padding: 0;
+  }
+  .pointer {
+    position: absolute; left: 14px; font-size: 130px;
+    visibility: hidden;
+    z-index: 10; /* above the 3D code card (its transform makes a stacking context) */
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,.6));
+  }
+  /* cinematic typing: chars are pre-highlighted then masked; visibility
+     (not display) keeps layout stable so there is zero reflow while typing */
+  code .ch { visibility: hidden; }
+  code .ch.on { visibility: visible; }
+  .cursor {
+    display: inline-block; width: 0.55em; height: 1.15em;
+    background: #c0caf5; vertical-align: text-bottom;
+    visibility: hidden;
+  }
+
+  .meme-panel {
+    flex: 1 1 auto; position: relative; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    background: #000;
+  }
+  .meme-panel img.meme {
+    width: 100%; height: 100%; object-fit: cover; object-position: center top;
+    transform-origin: 50% 30%;
+  }
+  .badge-row {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    display: flex; align-items: center; gap: 24px;
+    visibility: hidden;
+  }
+  .badge-row img {
+    width: 240px; height: 240px; object-fit: contain;
+    filter: drop-shadow(0 6px 12px rgba(0,0,0,.5));
+  }
+  .badge-row .label { font-size: 96px; white-space: nowrap; }
+  .bench {
+    position: absolute; left: 4%; right: 4%; top: 14%;
+    font-size: 78px;
+  }
+  .bench .word { display: inline-block; margin: 0 0.18em; visibility: hidden; }
+
+  /* dunk stamp: big, red, rotated — for the loser's number */
+  .bench.stamp {
+    top: 46%; left: 50%; right: auto; transform: translateX(-50%) rotate(-7deg);
+    width: max-content; font-size: 104px; color: #ff5252;
+    border: 12px solid #ff5252; border-radius: 18px; padding: 6px 40px;
+    background: rgba(0, 0, 0, 0.35);
+  }
+
+  /* running benchmark table — accumulates across scenes for comparability */
+  .bench-table {
+    position: absolute; top: 3.5%; left: 50%; transform: translateX(-50%);
+    width: max-content;
+    background: rgba(0, 0, 0, 0.66); border-radius: 20px; padding: 20px 42px;
+    display: none; flex-direction: column; gap: 8px;
+  }
+  .bench-table .trow {
+    display: flex; gap: 30px; align-items: baseline;
+    font-family: 'Menlo', 'SF Mono', monospace;
+    white-space: nowrap;
+  }
+  .trow .tname { min-width: 310px; text-align: right; font-size: 42px; color: #9aa5b1; }
+  .trow .tval  { min-width: 300px; font-size: 54px; font-weight: 700; color: #fff;
+                 text-shadow: 0 3px 10px rgba(0,0,0,.8); }
+  .trow .tram  { font-size: 40px; color: #8b949e; }
+  .tval.green { color: #7ee787; }
+  .tval.amber { color: #e3b341; }
+  .tval.red   { color: #ff7b72; }
+
+  /* core grid — the "does the work split?" visual (grid=16 grid_lit=N) */
+  .core-grid {
+    position: absolute; bottom: 5%; left: 50%; transform: translateX(-50%);
+    display: none; grid-template-columns: repeat(8, 74px); gap: 12px;
+    background: rgba(0, 0, 0, 0.6); border-radius: 18px; padding: 22px 26px;
+  }
+  .core-grid .core {
+    width: 74px; height: 74px; border-radius: 12px;
+    border: 4px solid #444c56; background: #161b22;
+    visibility: hidden;
+  }
+  .core-grid .core.lit {
+    background: #7ee787; border-color: #b7f7c8;
+    box-shadow: 0 0 26px rgba(126, 231, 135, 0.8);
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="code-panel">
+    <div class="pointer" id="pointer">👉</div>
+    <div class="code-card" id="codeCard">
+      <pre><code id="code"></code></pre>
+    </div>
+  </div>
+  <div class="meme-panel">
+    <img class="meme" id="meme" alt="">
+    <div class="badge-row" id="badgeRow">
+      <img id="badge" alt="" style="display:none">
+      <span class="label meme-text" id="badgeLabel"></span>
+    </div>
+    <div class="bench-table" id="benchTable"></div>
+    <div class="core-grid" id="coreGrid"></div>
+    <div class="bench meme-text" id="bench"></div>
+  </div>
+</div>
+<script src="_vendor/highlight.min.js"></script>
+<script src="_lib/scene.js"></script>
+<script>
+  // benchmark words built once in setup; visibility driven per frame
+  // d.bench = "Execution time:|μ: 150.25µS|σ: 50µS", d.bench_at = seconds
+  const benchWords = [];
+
+  // typing state, built once in setup
+  let typeChars = null, typeCursor = null;
+  // running-table reveal state
+  let tableRevealRow = null, tableRevealAt = 0, tableEl = null, tableRowCount = 0;
+  // stamp reveal state
+  let stampEl = null, stampAt = 0;
+  // core-grid state: cells appear at grid_at, then light up one by one
+  let gridCells = null, gridAt = 0, gridLit = 0;
+
+  window.setupScene = (d) => {
+    // full=true: code showcase — the 3D card takes the whole frame, no meme
+    if (d.full) {
+      document.querySelector('.code-panel').style.height = '100%';
+      document.querySelector('.meme-panel').style.display = 'none';
+    }
+    const codeEl = document.getElementById('code');
+    codeEl.textContent = d.codeText || '';
+    if (d.lang) codeEl.className = 'language-' + d.lang;
+    hljs.highlightElement(codeEl);
+    if (d.code_size) codeEl.style.fontSize = d.code_size + 'px';
+
+    // typing=true: wrap every character of the highlighted DOM in a
+    // maskable span, in document order — colors survive, reveal is per-char
+    if (d.typing) {
+      typeChars = [];
+      const walker = document.createTreeWalker(codeEl, NodeFilter.SHOW_TEXT);
+      const textNodes = [];
+      while (walker.nextNode()) textNodes.push(walker.currentNode);
+      for (const node of textNodes) {
+        const frag = document.createDocumentFragment();
+        for (const ch of node.textContent) {
+          const span = document.createElement('span');
+          span.className = 'ch';
+          span.textContent = ch;
+          frag.appendChild(span);
+          typeChars.push(span);
+        }
+        node.parentNode.replaceChild(frag, node);
+      }
+      typeCursor = document.createElement('span');
+      typeCursor.className = 'cursor';
+    }
+
+    if (d.meme) meme.src = d.meme;
+    if (d.badge || d.label) {
+      badgeRow.style.visibility = 'visible';
+      if (d.badge) { badge.src = d.badge; badge.style.display = 'block'; }
+      if (d.label) badgeLabel.textContent = d.label;
+    }
+
+    if (d.bench && d.bench_at != null) {
+      const benchEl = document.getElementById('bench');
+      if (d.bench_style === 'stamp') {
+        // one unit, one slam — the whole box (border included) pops at once
+        benchEl.classList.add('stamp');
+        const span = document.createElement('span');
+        span.className = 'word';
+        span.style.visibility = 'visible';
+        span.textContent = String(d.bench).replace(/\|/g, ' ');
+        benchEl.appendChild(span);
+        stampEl = benchEl;
+        stampAt = d.bench_at * 1000;
+      } else {
+        for (const line of String(d.bench).split('|')) {
+          const lineEl = document.createElement('div');
+          for (const w of line.split(/\s+/).filter(Boolean)) {
+            const span = document.createElement('span');
+            span.className = 'word';
+            span.textContent = w;
+            lineEl.appendChild(span);
+            const at = d.bench_at * 1000 + benchWords.length * (d.bench_word_ms ?? 150);
+            benchWords.push({ span, at });
+          }
+          benchEl.appendChild(lineEl);
+        }
+      }
+    }
+
+    // core grid: grid=<total cells> grid_lit=<how many light up>
+    if (d.grid) {
+      const gridEl = document.getElementById('coreGrid');
+      gridEl.style.display = 'grid';
+      gridCells = [];
+      for (let i = 0; i < d.grid; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'core';
+        gridEl.appendChild(cell);
+        gridCells.push(cell);
+      }
+      gridAt = (d.grid_at ?? 0.4) * 1000;
+      gridLit = d.grid_lit ?? 1;
+    }
+
+    // running table: rows "name:value:color|…" — all rows except the last
+    // are visible from scene start (carried over from previous scenes); the
+    // last row pops at table_pop (default bench_at) as this scene's reveal.
+    if (d.table) {
+      tableEl = document.getElementById('benchTable');
+      tableEl.style.display = 'flex';
+      const rows = String(d.table).split('|').filter(Boolean);
+      tableRowCount = rows.length;
+      rows.forEach((r, i) => {
+        // name:value[:color[:ram]] — ram renders as a dim second column
+        const [name, value, color, ram] = r.split(':');
+        const row = document.createElement('div');
+        row.className = 'trow';
+        row.innerHTML =
+          '<span class="tname"></span><span class="tval"></span><span class="tram"></span>';
+        row.querySelector('.tname').textContent = name;
+        const val = row.querySelector('.tval');
+        val.textContent = value;
+        if (color) val.classList.add(color);
+        if (ram) row.querySelector('.tram').textContent = ram;
+        tableEl.appendChild(row);
+        if (i === rows.length - 1) {
+          tableRevealRow = row;
+          tableRevealAt = (d.table_pop ?? d.bench_at ?? 0) * 1000;
+        }
+      });
+    }
+  };
+
+  window.renderScene = (t) => {
+    const d = SCENE.d;
+    const ts = t / 1000; // seconds into scene
+
+    // 3D projection + Ken Burns: subtle tilt, slow push-in and drift across
+    // the whole scene. Ambient motion, not a beat — flat=true to disable.
+    if (!d.flat) {
+      const p = Math.min(1, t / ((d.duration || 5) * 1000));
+      const scale = 1.03 + 0.07 * p;
+      const tx = 8 - 18 * p;
+      const ty = 5 - 12 * p;
+      codeCard.style.transform =
+        `rotateY(${d.tilt_y ?? -5}deg) rotateX(${d.tilt_x ?? 2.2}deg) ` +
+        `scale(${scale}) translate(${tx}px, ${ty}px)`;
+      // Ken Burns on the meme too: slow push toward the face, tiny drift
+      meme.style.transform = `scale(${1.04 + 0.09 * p}) translate(${-6 + 12 * p}px, ${4 - 8 * p}px)`;
+    }
+
+    // cinematic typing across [type_from, type_to] seconds; cursor is solid
+    // while typing, blinks (530ms half-cycle) once the code is complete
+    if (d.typing && typeChars) {
+      const from = d.type_from ?? 0.15;
+      const to = d.type_to ?? (d.duration - 1.5);
+      const p = Math.max(0, Math.min(1, (ts - from) / (to - from)));
+      const n = Math.round(p * typeChars.length);
+      typeChars.forEach((span, i) => span.classList.toggle('on', i < n));
+      const anchor = n < typeChars.length ? typeChars[n] : null;
+      if (anchor) anchor.parentNode.insertBefore(typeCursor, anchor);
+      else if (typeChars.length) {
+        const last = typeChars[typeChars.length - 1];
+        last.parentNode.appendChild(typeCursor);
+      }
+      const doneBlink = p >= 1 && (t % 1060) >= 530;
+      typeCursor.style.visibility = ts >= from && !doneBlink ? 'visible' : 'hidden';
+    }
+
+    // 👉 TARGETED cues: point="lineIdx:second,lineIdx:second" — the hand
+    // jumps to a specific line when the narration mentions it (congruence:
+    // what you hear is what the hand shows). Works alongside typing.
+    if (d.point) {
+      const cues = String(d.point).split(',').map(c => {
+        const [line, at] = c.split(':').map(Number);
+        return { line, at };
+      });
+      let active = null;
+      for (const c of cues) if (ts >= c.at) active = c;
+      if (active) {
+        const lines = (d.codeText || '').replace(/\s+$/, '').split('\n').length;
+        const panel = document.querySelector('.code-panel');
+        const pre = document.querySelector('pre');
+        const preRect = pre.getBoundingClientRect();
+        const lineH = preRect.height / lines;
+        const li = Math.min(lines - 1, active.line);
+        // small settle bounce as the hand lands
+        const dt = (ts - active.at) * 1000;
+        const bounce = dt < 220 ? Math.sin(dt * 0.028) * 18 * (1 - dt / 220) : 0;
+        pointer.style.top = (preRect.top - panel.getBoundingClientRect().top + li * lineH + lineH / 2 - 66) + 'px';
+        pointer.style.left = (10 + bounce) + 'px';
+        pointer.style.visibility = 'visible';
+      } else {
+        pointer.style.visibility = 'hidden';
+      }
+    }
+
+    // 👉 walks the code lines across [pointer_from, pointer_to] seconds
+    // (skip when typing — one moving element per scene)
+    if (d.pointer && !d.typing) {
+      const lines = (d.codeText || '').replace(/\s+$/, '').split('\n').length;
+      const from = d.pointer_from ?? 0.2;
+      const to = d.pointer_to ?? (d.duration - 1);
+      const p = Math.max(0, Math.min(1, (ts - from) / (to - from)));
+      if (ts >= from) {
+        const panel = document.querySelector('.code-panel');
+        const pre = document.querySelector('pre');
+        const preRect = pre.getBoundingClientRect();
+        const lineH = preRect.height / lines;
+        const line = Math.min(lines - 1, Math.floor(p * lines));
+        pointer.style.top = (preRect.top - panel.getBoundingClientRect().top + line * lineH + lineH / 2 - 66) + 'px';
+        pointer.style.visibility = 'visible';
+      } else {
+        pointer.style.visibility = 'hidden';
+      }
+    }
+
+    for (const { span, at } of benchWords) {
+      const s = popAt(at, t);
+      span.style.visibility = s.visible ? 'visible' : 'hidden';
+      span.style.transform = `scale(${s.scale})`;
+      span.style.opacity = s.opacity;
+    }
+
+    if (tableRevealRow) applyPop(tableRevealRow, tableRevealAt, t);
+
+    // grid: all cells pop together at gridAt; lit cells then ignite one by
+    // one (90ms cadence) — "the cores taking a bite"
+    if (gridCells) {
+      // container stays invisible until its beat — no empty backdrop
+      document.getElementById('coreGrid').style.visibility =
+        t >= gridAt ? 'visible' : 'hidden';
+      gridCells.forEach((cell, i) => {
+        cell.style.visibility = t >= gridAt ? 'visible' : 'hidden';
+        cell.classList.toggle('lit', i < gridLit && t >= gridAt + 200 + i * 70);
+      });
+    }
+    if (stampEl) {
+      // pop the container but preserve the stamp's rotation/centering
+      const s = popAt(stampAt, t);
+      stampEl.style.visibility = s.visible ? 'visible' : 'hidden';
+      stampEl.style.opacity = s.opacity;
+      stampEl.style.transform =
+        `translateX(-50%) rotate(-7deg) scale(${s.scale || 0})`;
+    }
+    // no empty backdrop: a single-row table appears only with its row
+    if (tableEl) {
+      tableEl.style.visibility =
+        tableRowCount > 1 || t >= tableRevealAt ? 'visible' : 'hidden';
+    }
+  };
+</script>
+</body>
+</html>

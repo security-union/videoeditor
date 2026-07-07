@@ -1,0 +1,16 @@
+[package]
+name = "videoeditor-timeline"
+description = "Episode timeline model and script.md parser for videoeditor"
+keywords = ["video", "timeline", "markdown", "shorts"]
+categories = ["multimedia::video", "parser-implementations"]
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true

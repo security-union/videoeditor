@@ -1,0 +1,18 @@
+[package]
+name = "videoeditor-chrome"
+description = "Minimal headless-Chrome CDP driver for videoeditor: deterministic frame capture and page grabbing"
+keywords = ["chrome", "cdp", "headless", "screenshot", "video"]
+categories = ["multimedia::video", "web-programming"]
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+base64.workspace = true
+serde_json.workspace = true
+tungstenite.workspace = true
+ureq.workspace = true

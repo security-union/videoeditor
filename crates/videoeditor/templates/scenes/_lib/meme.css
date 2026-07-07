@@ -1,0 +1,25 @@
+/* Shared meme-caption typography: heavy white with thick black outline. */
+@font-face {
+  /* Impact ships with macOS/Windows; fallback chain covers linux CI */
+  font-family: MemeStack;
+  src: local('Impact'), local('Anton'), local('Arial Black');
+}
+.meme-text {
+  font-family: MemeStack, Impact, 'Arial Black', sans-serif;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: 0.5px;
+  text-align: center;
+  line-height: 1.15;
+  text-shadow:
+    -6px -6px 0 #000, 6px -6px 0 #000, -6px 6px 0 #000, 6px 6px 0 #000,
+    -6px 0 0 #000, 6px 0 0 #000, 0 -6px 0 #000, 0 6px 0 #000,
+    -4px -4px 0 #000, 4px 4px 0 #000, -4px 4px 0 #000, 4px -4px 0 #000,
+    0 0 18px rgba(0, 0, 0, 0.55);
+}
+body {
+  margin: 0;
+  background: #000;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}

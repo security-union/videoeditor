@@ -1,0 +1,177 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="_lib/meme.css">
+<style>
+  .stage { position: relative; width: 100vw; height: 100vh; background: #200300; overflow: hidden; }
+  #fire { position: absolute; inset: 0; z-index: 1; }
+
+  /* GIANT brush VS — the frame's centerpiece */
+  .vs {
+    position: absolute; left: 50%; top: 27%; transform: translateX(-50%);
+    z-index: 3; font-family: MemeStack, Impact, 'Arial Black', sans-serif;
+    color: #120400; line-height: 0.8; font-weight: 900;
+    text-shadow: 0 0 60px rgba(0,0,0,0.5);
+  }
+  .vs .v { display: inline-block; font-size: 560px; transform: rotate(-8deg); }
+  .vs .s { display: inline-block; font-size: 460px; transform: rotate(7deg) translateY(70px); margin-left: -70px; }
+
+  /* contenders — staggered like a fight poster */
+  .side { position: absolute; z-index: 4; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .side img { width: 230px; height: 230px; object-fit: contain;
+              filter: drop-shadow(0 8px 24px rgba(0,0,0,.8)); }
+  #right img {
+    width: 310px; height: 310px;
+    filter: brightness(1.3) drop-shadow(0 0 26px rgba(0,0,0,.95)) drop-shadow(0 0 60px rgba(40,4,0,.9));
+  }
+  .side .logo-name {
+    font-family: MemeStack, Impact, sans-serif; font-size: 96px; color: #fff;
+    text-shadow: -6px -6px 0 #000, 6px -6px 0 #000, -6px 6px 0 #000, 6px 6px 0 #000,
+                 0 0 26px rgba(0,0,0,.7);
+  }
+  #left  { left: 4%;  top: 13%; }
+  #right { right: 4%; top: 47%; }
+
+  .title    { position: absolute; top: 74%; left: 5%; right: 5%; font-size: 96px; z-index: 4; }
+  .subtitle { position: absolute; top: 85%; left: 7%; right: 7%; font-size: 50px; color: #ffe9b0; z-index: 4; }
+
+  .flash { position: absolute; inset: 0; background: #fff; opacity: 0; z-index: 5; pointer-events: none; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <canvas id="fire"></canvas>
+  <div class="vs" id="vs"><span class="v">V</span><span class="s">S</span></div>
+  <div class="side" id="left"><img id="leftImg" alt=""><div class="logo-name" id="leftName"></div></div>
+  <div class="side" id="right"><img id="rightImg" alt=""><div class="logo-name" id="rightName"></div></div>
+  <div class="title meme-text" id="titleText"></div>
+  <div class="subtitle meme-text" id="subtitleText"></div>
+  <div class="flash" id="flash"></div>
+</div>
+<script src="_lib/scene.js"></script>
+<script>
+  const titleEl = document.getElementById('titleText');
+  const subtitleEl = document.getElementById('subtitleText');
+
+  window.setupScene = (d) => {
+    fire.width = d.width || 1080;
+    fire.height = d.height || 1920;
+    if (d.left)  leftImg.src  = d.left;
+    if (d.right) rightImg.src = d.right;
+    leftName.textContent = d.left_label || '';
+    rightName.textContent = d.right_label || '';
+    titleEl.textContent = d.title || '';
+    subtitleEl.textContent = d.subtitle || '';
+  };
+
+  // VIOLENT entrance: slam from 3.4x with rotation, then a decaying shake.
+  function slam(el, at, t, spin, baseTransform) {
+    if (t < at) { el.style.visibility = 'hidden'; return false; }
+    el.style.visibility = 'visible';
+    const dt = t - at;
+    const base = baseTransform || '';
+    if (dt < 130) {
+      const p = dt / 130;
+      const scale = 3.4 - 2.4 * (p * p);
+      el.style.opacity = 0.3 + 0.7 * p;
+      el.style.transform = `${base} scale(${scale}) rotate(${spin * (1 - p)}deg)`;
+    } else {
+      const s = Math.max(0, 1 - (dt - 130) / 350);
+      const dx = Math.sin(dt * 0.11) * 14 * s;
+      const dy = Math.cos(dt * 0.09) * 10 * s;
+      el.style.opacity = 1;
+      el.style.transform = `${base} scale(1) translate(${dx}px, ${dy}px)`;
+    }
+    return dt < 110;
+  }
+
+  window.renderScene = (t) => {
+    const d = SCENE.d;
+    const leftAt  = d.left_at  ?? 180;
+    const rightAt = d.right_at ?? 760;
+    const vsAt    = d.vs_at    ?? 420;
+
+    let impact = false;
+    impact |= slam(document.getElementById('left'), leftAt, t, -12);
+    impact |= slam(document.getElementById('right'), rightAt, t, 12);
+    impact |= slam(vs, vsAt, t, -18, 'translateX(-50%)');
+    applyPop(titleEl,    d.title_at ?? 1050, t);
+    applyPop(subtitleEl, d.subtitle_at ?? (d.title_at ?? 1050) + 400, t);
+    flash.style.opacity = impact ? 0.6 : 0;
+    drawFire(t);
+  };
+
+  // ═══ FULL-FRAME INFERNO ═══ rolling fire clouds filling the whole card,
+  // anime-versus-screen style. Every pixel a pure function of t.
+  function drawFire(t) {
+    const W = fire.width, H = fire.height;
+    const ctx = fire.getContext('2d');
+
+    // deep ember base, hotter toward center
+    const base = ctx.createRadialGradient(W/2, H*0.58, 120, W/2, H*0.58, H*0.85);
+    base.addColorStop(0, '#e85d04');
+    base.addColorStop(0.45, '#bf3100');
+    base.addColorStop(1, '#4a0d00');
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, W, H);
+
+    // rolling flame clouds — big soft blobs drifting upward, wobbling
+    ctx.globalCompositeOperation = 'lighter';
+    const CLOUDS = 42;
+    for (let i = 0; i < CLOUDS; i++) {
+      const seedX = ((i * 379) % 100) / 100;
+      const drift = ((t * (0.030 + (i % 7) * 0.012) + i * 613) % (H + 900)) - 450;
+      const y = H - drift;
+      const x = seedX * W + Math.sin(t * 0.0016 + i * 2.4) * 130;
+      const r = 190 + ((i * 227) % 240) + 60 * flicker(t, i * 7.7);
+      const cr = ctx.createRadialGradient(x, y, 0, x, y, r);
+      if (y > H * 0.55) {        // lower frame: bright yellow-orange billows
+        cr.addColorStop(0, 'rgba(255,196,80,0.34)');
+        cr.addColorStop(1, 'rgba(230,80,10,0)');
+      } else if (y > H * 0.25) { // mid: orange
+        cr.addColorStop(0, 'rgba(244,120,26,0.28)');
+        cr.addColorStop(1, 'rgba(160,40,4,0)');
+      } else {                   // top: deep red rolls
+        cr.addColorStop(0, 'rgba(180,45,8,0.26)');
+        cr.addColorStop(1, 'rgba(90,15,0,0)');
+      }
+      ctx.fillStyle = cr;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+    }
+
+    // pulsing white-hot pockets
+    for (let i = 0; i < 6; i++) {
+      const hx = W * (0.14 + 0.72 * ((i * 137) % 100) / 100);
+      const hy = H * (0.3 + 0.55 * ((i * 271) % 100) / 100);
+      const hr = 150 + 90 * (0.5 + 0.5 * flicker(t * 1.4, i * 23));
+      const hg = ctx.createRadialGradient(hx, hy, 0, hx, hy, hr);
+      hg.addColorStop(0, 'rgba(255,236,170,0.30)');
+      hg.addColorStop(1, 'rgba(255,120,20,0)');
+      ctx.fillStyle = hg;
+      ctx.beginPath(); ctx.arc(hx, hy, hr, 0, 7); ctx.fill();
+    }
+
+    // ember storm across the whole frame
+    for (let i = 0; i < 40; i++) {
+      const cycle = 2100 + (i * 137) % 1000;
+      const ph = ((t * (1 + (i % 5) * 0.14) + i * 977) % cycle) / cycle;
+      const ex = W * ((i * 383) % 100) / 100 + Math.sin(t * 0.002 + i) * 90 * ph;
+      const ey = H * 1.02 - ph * (H * 1.05);
+      const er = (2.5 + (i % 4) * 2.2) * (1 - ph * 0.7);
+      if (er <= 0.4) continue;
+      ctx.fillStyle = `rgba(255,${150 + (i * 23) % 80},50,${(1 - ph) * 0.85})`;
+      ctx.beginPath(); ctx.arc(ex, ey, er, 0, 7); ctx.fill();
+    }
+
+    // moody top vignette
+    const vg = ctx.createLinearGradient(0, 0, 0, H * 0.4);
+    vg.addColorStop(0, 'rgba(30,4,0,0.55)');
+    vg.addColorStop(1, 'rgba(30,4,0,0)');
+    ctx.fillStyle = vg;
+    ctx.fillRect(0, 0, W, H * 0.4);
+  }
+</script>
+</body>
+</html>

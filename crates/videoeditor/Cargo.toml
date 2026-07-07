@@ -1,0 +1,23 @@
+[package]
+name = "videoeditor"
+description = "Scripted short-video renderer: markdown in, vertical video out (Rust + headless Chrome + ffmpeg)"
+keywords = ["video", "ffmpeg", "shorts", "youtube", "tts"]
+categories = ["command-line-utilities", "multimedia::video"]
+readme = "../../README.md"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+base64.workspace = true
+clap.workspace = true
+include_dir.workspace = true
+serde_json.workspace = true
+videoeditor-chrome.workspace = true
+videoeditor-media.workspace = true
+videoeditor-timeline.workspace = true
+videoeditor-voice.workspace = true
