@@ -16,6 +16,16 @@ const EXAMPLE_TEMPLATE: &str = r#"<!doctype html>
 <head>
 <meta charset="utf-8">
 <link rel="stylesheet" href="_lib/meme.css">
+<script type="application/json" id="template-info">
+{
+  "description": "starter template: one big meme-styled title popping in",
+  "keys": {
+    "title": "the headline text",
+    "title_at": "pop time (ms)"
+  },
+  "demo": { "title": "HELLO FROM MY PACK", "title_at": 500, "duration": 2 }
+}
+</script>
 <style>
   .stage {
     width: 100vw; height: 100vh; background: #0b0e14;
@@ -92,6 +102,15 @@ A template is a PURE FUNCTION of `(SCENE.d, SCENE.t)`:
    backdrops, premature pops, unreadable text.
 6. Iterate 2–5 until the frames look right, then show the human the frames
    (not the code) and ask for art direction, not implementation.
+
+## Discoverability (do this in every template)
+
+Ship a `<script type="application/json" id="template-info">` block with
+`description`, `keys` (each data key, with units — ms vs s matters), and
+`demo` (self-contained sample data incl. `duration`; inline `codeText`/data
+URIs, no file paths). `videoeditor templates` lists the repertoire from these
+blocks and `videoeditor preview <name>` renders the demo into a contact
+sheet — a template without one is invisible to users browsing for scenes.
 
 ## Self-diagnostics (do this in every template)
 

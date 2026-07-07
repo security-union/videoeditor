@@ -193,6 +193,15 @@ paths already inlined as data: URIs, plus `codeText`, `duration`, `width`,
 
 Add a template = drop an HTML file in `templates/scenes/`. Zero engine changes.
 
+**Browsing the repertoire**: `videoeditor templates` lists every scene
+template visible from where you stand (episode-local, packs, built-ins) with
+its description and data keys; `videoeditor preview` renders each one's
+bundled demo data into a five-frame contact sheet PNG so you can SEE the
+animation before using it (`videoeditor preview code-meme` for just one,
+`--episode <dir>` to browse what a specific episode resolves). Templates
+self-describe via an embedded `template-info` JSON block — packs that ship
+one show up in the catalog like the built-ins do.
+
 ## Template packs — your look, outside the engine
 
 The built-ins are a starting point, not your brand. A **pack** is a

@@ -38,6 +38,28 @@
 
   .flash { position: absolute; inset: 0; background: #fff; opacity: 0; z-index: 5; pointer-events: none; }
 </style>
+<script type="application/json" id="template-info">
+{
+  "description": "X-vs-Y hook: two logos slam in, VS flame, popping title + subtitle",
+  "keys": {
+    "left / right": "logo images",
+    "left_label / right_label": "names under the logos",
+    "title": "headline text",
+    "subtitle": "smaller line under the title",
+    "left_at / right_at / vs_at / title_at / subtitle_at": "pop times (ms)"
+  },
+  "demo": {
+    "title": "X vs Y",
+    "subtitle": "the showdown",
+    "left_label": "X",
+    "right_label": "Y",
+    "left_at": 180,
+    "right_at": 760,
+    "title_at": 1200,
+    "duration": 3
+  }
+}
+</script>
 </head>
 <body>
 <div class="stage" id="stage">

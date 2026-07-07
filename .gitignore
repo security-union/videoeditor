@@ -16,3 +16,6 @@ examples/*/audio/
 
 # analyze output (extracted audio + transcripts of reference videos)
 analysis/
+
+# videoeditor preview output
+template-previews/

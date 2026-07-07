@@ -115,6 +115,44 @@
     box-shadow: 0 0 26px rgba(126, 231, 135, 0.8);
   }
 </style>
+<script type="application/json" id="template-info">
+{
+  "description": "floating 3D code card (typing reveal, walking 👉 pointer) over a meme panel with popping benchmark text, accumulating table, dunk stamp",
+  "keys": {
+    "code": "path to code file (or codeText inline)",
+    "lang": "highlight language",
+    "code_size": "font px",
+    "full": "code card takes the whole frame",
+    "flat": "disable tilt + Ken Burns",
+    "meme": "meme image",
+    "badge / label": "logo + name composited on the meme",
+    "typing": "type the code in",
+    "type_from / type_to": "typing window (s)",
+    "pointer": "walking 👉",
+    "pointer_from / pointer_to": "pointer window (s)",
+    "point": "cue list 'line:sec line:sec' — pointer jumps to a line at a time",
+    "bench": "benchmark lines split by |",
+    "bench_at": "bench pop (s)",
+    "bench_word_ms": "per-word pop spacing (ms)",
+    "bench_style": "'stamp' = dunk stamp",
+    "table": "accumulating rows 'name:value:color:ram|…'",
+    "table_pop": "new row pop (s)",
+    "grid / grid_at / grid_lit": "core-grid visual",
+    "tilt_x / tilt_y": "card tilt (deg)"
+  },
+  "demo": {
+    "codeText": "fn main() {\n    let wins: u32 = 1;\n    println!(\"{wins}\");\n}",
+    "lang": "rust",
+    "typing": true,
+    "type_from": 0.2,
+    "type_to": 1.4,
+    "label": "PREVIEW",
+    "bench": "Execution time:|μ: 1.2ms",
+    "bench_at": 2.0,
+    "duration": 3
+  }
+}
+</script>
 </head>
 <body>
 <div class="stage">

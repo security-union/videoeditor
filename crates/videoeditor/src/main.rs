@@ -1,5 +1,6 @@
 mod analyze;
 mod assets;
+mod catalog;
 mod pack;
 mod render;
 
@@ -64,6 +65,24 @@ enum Cmd {
         #[command(subcommand)]
         cmd: PackCmd,
     },
+    /// List the template repertoire: every scene template visible from here
+    /// (or from an episode), with descriptions and data keys
+    Templates {
+        /// Episode dir — include its packs and episode-local templates
+        episode: Option<PathBuf>,
+    },
+    /// Render visual contact sheets of templates from their built-in demo
+    /// data (all of them by default, or one by name)
+    Preview {
+        /// Template name (omit to preview the whole repertoire)
+        template: Option<String>,
+        /// Output directory for the PNG sheets
+        #[arg(short, long, default_value = "template-previews")]
+        out: PathBuf,
+        /// Episode dir — resolve templates the way this episode would
+        #[arg(long)]
+        episode: Option<PathBuf>,
+    },
     /// Research helper: fetch a URL through YOUR running Chrome (logged-in
     /// sessions bypass bot walls) and print the page text
     Grab {
@@ -91,6 +110,23 @@ enum PackCmd {
 
 fn load(episode: &Path) -> Result<videoeditor_timeline::Episode> {
     videoeditor_timeline::load(episode, &assets::find_root()?)
+}
+
+/// Template resolution layers for catalog commands: an episode's layers when
+/// one is given, otherwise cwd + $VIDEOEDITOR_PACK_PATH + built-ins.
+fn catalog_roots(episode: Option<&Path>) -> Result<Vec<std::path::PathBuf>> {
+    match episode {
+        Some(ep) => Ok(load(ep)?.template_roots),
+        None => {
+            let pack_path = std::env::var("VIDEOEDITOR_PACK_PATH").ok();
+            videoeditor_timeline::template_roots(
+                &std::env::current_dir()?,
+                &[],
+                pack_path.as_deref(),
+                &assets::find_root()?,
+            )
+        }
+    }
 }
 
 fn main() -> Result<()> {
@@ -136,6 +172,20 @@ fn main() -> Result<()> {
             PackCmd::Init { dir } => pack::init(&dir)?,
             PackCmd::List { episode } => pack::list(&load(&episode)?)?,
         },
+        Cmd::Templates { episode } => {
+            catalog::list(&catalog_roots(episode.as_deref())?)?;
+        }
+        Cmd::Preview {
+            template,
+            out,
+            episode,
+        } => {
+            catalog::preview(
+                &catalog_roots(episode.as_deref())?,
+                template.as_deref(),
+                &out,
+            )?;
+        }
         Cmd::Grab {
             url,
             port,

@@ -816,6 +816,7 @@ dependencies = [
  "base64",
  "clap",
  "include_dir",
+ "serde",
  "serde_json",
  "videoeditor-chrome",
  "videoeditor-media",
