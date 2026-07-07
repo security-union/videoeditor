@@ -24,8 +24,8 @@
     background: rgba(255,255,255,0.045); border-radius: 16px; padding: 26px 18px;
     visibility: hidden;
   }
-  .cell.hot   { color: #79c0ff; }   /* tokio side accent */
-  .cell.work  { color: #7ee787; }   /* rayon side accent */
+  .cell.hot   { color: #79c0ff; }   /* left-column accent */
+  .cell.work  { color: #7ee787; }   /* right-column accent */
   .cell.big { font-family: MemeStack, Impact, sans-serif; font-size: 64px;
               color: #fff; background: none; }
 </style>
@@ -57,7 +57,7 @@
 </div>
 <script src="_lib/scene.js"></script>
 <script>
-  // DATA: title="THE RULE" left=<img> right=<img> left_label=tokio right_label=rayon
+  // DATA: title="THE RULE" left=<img> right=<img> left_label=X right_label=Y
   //       rows="async I/O:CPU-bound|network · db:hashing · math|..."
   //       row_pops="1.0,4.5,8.0"  (seconds; big= marks final row as verdict)
   const rowCells = [];
