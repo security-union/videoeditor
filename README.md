@@ -12,40 +12,48 @@ open DaVinci. `script.md` in → rendered vertical video out.
 
 ## Bootstrap
 
-`videoeditor` is a single static Rust binary that **orchestrates tools you
-already have** — it does not bundle a video encoder or a browser. It shells
-out to `ffmpeg`/`ffprobe` on your PATH (the yt-dlp model: any recent ffmpeg
-works, no LGPL/GPL bundling headaches, the binary stays small) and drives your
-system Chrome over the DevTools protocol. Scene templates and format skeletons
-ARE embedded in the binary and self-extract to `~/.cache/videoeditor/<version>/`
-on first run, so there is nothing else to download.
+**The preferred path is nix** — one command builds the pinned binary AND its
+media toolchain deterministically from the committed `flake.lock`, so every
+machine gets the exact same rustc, ffmpeg (and on Linux, chromium):
 
-### What you need
+```bash
+# install nix once: https://install.determinate.systems
+nix profile install github:security-union/videoeditor   # install the CLI
+# …or try it without installing:
+nix run github:security-union/videoeditor -- --help
+```
+
+The nix-built binary is wrapped so its pinned ffmpeg is always found — nothing
+to apt/brew install, no version drift. Two things stay outside the pin:
+**Chrome on macOS** (nixpkgs can't ship it there; the system install is
+auto-detected, `CHROME_BIN` overrides — Linux gets a pinned chromium) and your
+**`ELEVENLABS_API_KEY`** ([elevenlabs.io](https://elevenlabs.io) → profile →
+API keys; free tier is enough for shorts), which is only needed by `tts` and
+`analyze` — `parse`, `new`, `render`, and `assemble` of already-voiced
+episodes run keyless.
+
+Contributors: `nix develop` (or `direnv allow` — `.envrc` is committed) drops
+you in the pinned dev shell with rustc, ffmpeg, just, and rust-analyzer;
+`just --list` shows the task recipes.
+
+### Without nix
+
+`videoeditor` is a single Rust binary that orchestrates tools on your PATH
+(the yt-dlp model — templates and formats are embedded and self-extract to
+`~/.cache/videoeditor/<version>/`, so the crate is a complete install; ffmpeg
+and Chrome you bring yourself):
+
+```bash
+cargo install videoeditor        # or: cargo install --path crates/videoeditor
+```
 
 | Dependency | Needed for | Check | Get it |
 |---|---|---|---|
 | ffmpeg + ffprobe | `render`, `assemble`, `analyze` | `ffmpeg -version` | `brew install ffmpeg` · `apt install ffmpeg` · `dnf install ffmpeg` |
 | Chrome / Chromium | `render` (web scenes), `grab` | `"$CHROME_BIN" --version` or a normal install | [google.com/chrome](https://www.google.com/chrome/) — auto-detected on macOS and Linux; `CHROME_BIN=/path/to/chrome` to override |
-| `ELEVENLABS_API_KEY` | `tts`, `analyze` only | `echo $ELEVENLABS_API_KEY` | [elevenlabs.io](https://elevenlabs.io) → profile → API keys (free tier is enough for shorts) |
+| `ELEVENLABS_API_KEY` | `tts`, `analyze` only | `echo $ELEVENLABS_API_KEY` | [elevenlabs.io](https://elevenlabs.io) |
 
-`parse`, `new`, and `render`/`assemble` of already-voiced episodes work with
-no API key. macOS and Linux are supported; on Windows use WSL.
-
-### Install
-
-```bash
-# 1. released binary (crates.io)
-cargo install videoeditor
-
-# 2. or from source
-git clone https://github.com/security-union/videoeditor
-cd videoeditor
-cargo install --path crates/videoeditor
-
-# 3. or the hermetic route: the nix flake pins rustc + ffmpeg + just
-#    (Chrome still comes from the system — nix doesn't ship it on macOS)
-nix develop
-```
+macOS and Linux are supported; on Windows use WSL.
 
 ### Your first video
 
@@ -164,14 +172,18 @@ my-short/
 
 ## Packaging & releases
 
-Releases are automated with [release-plz](https://release-plz.dev): merging
-the release PR bumps versions, updates changelogs, tags, and publishes all
-five crates to crates.io. The shipped artifact is **just the crate** — the
-binary embeds its templates/formats, so `cargo install videoeditor` is a
-complete install. ffmpeg and Chrome are deliberately *not* vendored:
-ffmpeg's GPL-licensed builds can't ship inside an MIT binary, both are
-platform-packaged everywhere, and staying a thin orchestrator keeps the
-binary a few megabytes instead of a few hundred.
+Two distribution channels, both fed from the same tag:
+
+- **nix flake (preferred)** — `nix profile install github:security-union/videoeditor`
+  builds from the committed `flake.lock`: pinned rustc, pinned ffmpeg (pinned
+  chromium on Linux), binary wrapped so those exact versions are found at
+  runtime. Fully deterministic; CI builds the flake on every PR.
+- **crates.io** — released with [release-plz](https://release-plz.dev):
+  merging the release PR bumps versions, updates changelogs, tags, and
+  publishes all five crates. The crate is a complete install (templates
+  embedded), but ffmpeg/Chrome come from your system: ffmpeg's GPL-licensed
+  builds can't ship inside an MIT binary, and staying a thin orchestrator
+  keeps the binary a few megabytes instead of a few hundred.
 
 Developing: `nix develop` (or bring your own rustc + ffmpeg), then
 `just --list` for the task recipes — CI runs the same `just check`,

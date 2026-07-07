@@ -29,3 +29,18 @@ jobs:
         run: just test
       - name: build
         run: just build
+
+  # the preferred install path must stay green: sandboxed build from flake.lock
+  nix:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v16
+      - uses: DeterminateSystems/magic-nix-cache-action@v9
+      - name: nix build
+        run: nix build .#videoeditor --print-build-logs
+      - name: smoke
+        run: ./result/bin/videoeditor --help

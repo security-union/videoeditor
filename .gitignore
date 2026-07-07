@@ -11,9 +11,9 @@ examples/*/audio/
 *.wav
 *.m4a
 
-# env / editor
+# env / editor  (.envrc IS committed — it only says `use flake`)
 .direnv/
-.envrc
 .env
 .DS_Store
 *.log
+result
