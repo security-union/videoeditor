@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 #[derive(Parser)]
 #[command(
     name = "videoeditor",
-    version,
+    version = concat!(env!("CARGO_PKG_VERSION"), env!("VIDEOEDITOR_BUILD_INFO")),
     about = "Scripted short-video renderer: script.md in, rendered vertical video out",
     after_help = "AI agents (Claude Code, etc.): run `videoeditor guide` for the embedded \
                   director's guide — the full production workflow, script grammar, and \
