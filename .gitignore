@@ -1,19 +1,18 @@
 # build outputs
 target/
-build/
+result
 
-# episode render artifacts (never commit produced videos)
-examples/*/build/
+# render artifacts — never commit produced videos or generated narration.
+# (Committed media ASSETS — test fixtures, music beds — are fine and go
+# through git-lfs; see .gitattributes.)
+build/
 examples/*/audio/
-*.mp4
-*.mov
-*.mp3
-*.wav
-*.m4a
 
 # env / editor  (.envrc IS committed — it only says `use flake`)
 .direnv/
 .env
 .DS_Store
 *.log
-result
+
+# analyze output (extracted audio + transcripts of reference videos)
+analysis/

@@ -1,10 +1,32 @@
-# Media through git-lfs (renders and audio stay untracked — see .gitignore;
-# this covers committed static assets like example images)
+# Committed media (test assets, example fixtures, music beds) goes through
+# git-lfs. Render OUTPUTS are never committed at all — build/ and generated
+# audio/ are gitignored; this only covers assets that belong in the repo.
+
+# images
 *.png filter=lfs diff=lfs merge=lfs -text
 *.jpg filter=lfs diff=lfs merge=lfs -text
 *.jpeg filter=lfs diff=lfs merge=lfs -text
 *.webp filter=lfs diff=lfs merge=lfs -text
 *.gif filter=lfs diff=lfs merge=lfs -text
 
-# README demo strip stays plain git (GitHub won't render LFS images)
+# video
+*.mp4 filter=lfs diff=lfs merge=lfs -text
+*.mov filter=lfs diff=lfs merge=lfs -text
+*.webm filter=lfs diff=lfs merge=lfs -text
+*.mkv filter=lfs diff=lfs merge=lfs -text
+*.avi filter=lfs diff=lfs merge=lfs -text
+
+# audio
+*.mp3 filter=lfs diff=lfs merge=lfs -text
+*.wav filter=lfs diff=lfs merge=lfs -text
+*.m4a filter=lfs diff=lfs merge=lfs -text
+*.aac filter=lfs diff=lfs merge=lfs -text
+*.flac filter=lfs diff=lfs merge=lfs -text
+*.ogg filter=lfs diff=lfs merge=lfs -text
+
+# fonts
+*.ttf filter=lfs diff=lfs merge=lfs -text
+*.otf filter=lfs diff=lfs merge=lfs -text
+
+# README demo strip stays plain git (GitHub won't render LFS images inline)
 docs/*.jpg -filter -diff -merge text
