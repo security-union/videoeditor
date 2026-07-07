@@ -10,28 +10,65 @@ open DaVinci. `script.md` in → rendered vertical video out.
 - **ffmpeg** does the heavy lifting: scene encodes, concat, audio mix.
 - **ElevenLabs** voices the narration and transcribes reference videos.
 
-## Quickstart
+## Bootstrap
+
+`videoeditor` is a single static Rust binary that **orchestrates tools you
+already have** — it does not bundle a video encoder or a browser. It shells
+out to `ffmpeg`/`ffprobe` on your PATH (the yt-dlp model: any recent ffmpeg
+works, no LGPL/GPL bundling headaches, the binary stays small) and drives your
+system Chrome over the DevTools protocol. Scene templates and format skeletons
+ARE embedded in the binary and self-extract to `~/.cache/videoeditor/<version>/`
+on first run, so there is nothing else to download.
+
+### What you need
+
+| Dependency | Needed for | Check | Get it |
+|---|---|---|---|
+| ffmpeg + ffprobe | `render`, `assemble`, `analyze` | `ffmpeg -version` | `brew install ffmpeg` · `apt install ffmpeg` · `dnf install ffmpeg` |
+| Chrome / Chromium | `render` (web scenes), `grab` | `"$CHROME_BIN" --version` or a normal install | [google.com/chrome](https://www.google.com/chrome/) — auto-detected on macOS and Linux; `CHROME_BIN=/path/to/chrome` to override |
+| `ELEVENLABS_API_KEY` | `tts`, `analyze` only | `echo $ELEVENLABS_API_KEY` | [elevenlabs.io](https://elevenlabs.io) → profile → API keys (free tier is enough for shorts) |
+
+`parse`, `new`, and `render`/`assemble` of already-voiced episodes work with
+no API key. macOS and Linux are supported; on Windows use WSL.
+
+### Install
 
 ```bash
-cargo install videoeditor        # or: git clone && cargo build --release
-export ELEVENLABS_API_KEY=...    # https://elevenlabs.io → profile → API keys
+# 1. released binary (crates.io)
+cargo install videoeditor
 
-# render the bundled example end to end
+# 2. or from source
+git clone https://github.com/security-union/videoeditor
+cd videoeditor
+cargo install --path crates/videoeditor
+
+# 3. or the hermetic route: the nix flake pins rustc + ffmpeg + just
+#    (Chrome still comes from the system — nix doesn't ship it on macOS)
+nix develop
+```
+
+### Your first video
+
+```bash
+export ELEVENLABS_API_KEY=...
+
+# render the bundled example end to end (from a source checkout)
 videoeditor build examples/hello-bench
 open examples/hello-bench/build/final.mp4
 
 # start your own
-videoeditor new my-first-short   # scaffold from formats/meme-benchmark
-$EDITOR my-first-short/script.md
-videoeditor build my-first-short
+videoeditor new my-first-short     # scaffold from formats/meme-benchmark
+$EDITOR my-first-short/script.md   # write scenes + narration (grammar below)
+videoeditor build my-first-short   # tts → render → assemble
+open my-first-short/build/final.mp4
 ```
 
-Requires: **Chrome** (system install; `CHROME_BIN` to override) and **ffmpeg**
-on PATH. Scene templates and format skeletons are embedded in the binary and
-extracted to `~/.cache/videoeditor/<version>/` on first run — set
-`VIDEOEDITOR_ROOT` to point at a checkout when hacking on templates.
-
-There's also a nix flake (`nix develop`) that pins the toolchain + ffmpeg.
+Iterating: `videoeditor tts <dir>` re-voices only missing/changed chunks
+(`--chunk name --force` to re-roll one take) and prints ⚠ fit-check warnings
+when narration overlaps; `videoeditor render <dir> --scene name` re-renders a
+single scene; `videoeditor assemble <dir>` re-mixes in seconds. Hacking on the
+HTML templates? Point `VIDEOEDITOR_ROOT` at your checkout and edits apply
+without rebuilding.
 
 ## Pipeline
 
@@ -124,6 +161,21 @@ my-short/
 ├── audio/clips/       # generated narration (name-keyed) — regenerable
 └── build/             # frames/, scenes/, final.mp4 — disposable
 ```
+
+## Packaging & releases
+
+Releases are automated with [release-plz](https://release-plz.dev): merging
+the release PR bumps versions, updates changelogs, tags, and publishes all
+five crates to crates.io. The shipped artifact is **just the crate** — the
+binary embeds its templates/formats, so `cargo install videoeditor` is a
+complete install. ffmpeg and Chrome are deliberately *not* vendored:
+ffmpeg's GPL-licensed builds can't ship inside an MIT binary, both are
+platform-packaged everywhere, and staying a thin orchestrator keeps the
+binary a few megabytes instead of a few hundred.
+
+Developing: `nix develop` (or bring your own rustc + ffmpeg), then
+`just --list` for the task recipes — CI runs the same `just check`,
+`just test`, `just build` you run locally.
 
 ## License
 
