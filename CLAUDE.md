@@ -17,9 +17,10 @@ vertical video out via headless Chrome + ffmpeg + ElevenLabs).
 
 ## Commands
 
-- Nix is the preferred dependency path: `nix develop` (dev shell) /
-  `nix build .#videoeditor` (the install artifact CI gates on). Keep
-  `flake.lock` committed; `nix flake update` only as a deliberate PR.
+- Nix is the preferred dependency path: `nix develop` (dev shell; puts a
+  source-fresh `videoeditor` on PATH) / `nix build .#videoeditor` (the
+  install artifact CI gates on). Details: docs/nix.md. Keep `flake.lock`
+  committed; `nix flake update` only as a deliberate PR.
 
 - `just check` — clippy -D warnings + fmt --check (CI runs the same recipe).
 - `just test` / `cargo test --workspace` — parser + fit-check tests live in
