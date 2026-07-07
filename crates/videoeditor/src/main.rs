@@ -12,7 +12,11 @@ use std::path::{Path, PathBuf};
 #[command(
     name = "videoeditor",
     version,
-    about = "Scripted short-video renderer: script.md in, rendered vertical video out"
+    about = "Scripted short-video renderer: script.md in, rendered vertical video out",
+    after_help = "AI agents (Claude Code, etc.): run `videoeditor guide` for the embedded \
+                  director's guide — the full production workflow, script grammar, and \
+                  template-authoring pointers. Scaffolds (`new`, `pack init`) drop CLAUDE.md \
+                  files that wire up your session automatically."
 )]
 struct Cli {
     #[command(subcommand)]
@@ -83,6 +87,9 @@ enum Cmd {
         #[arg(long)]
         episode: Option<PathBuf>,
     },
+    /// Print the embedded director's guide: production workflow, script.md
+    /// grammar, template authoring — written for AI agents and humans alike
+    Guide,
     /// Research helper: fetch a URL through YOUR running Chrome (logged-in
     /// sessions bypass bot walls) and print the page text
     Grab {
@@ -172,6 +179,9 @@ fn main() -> Result<()> {
             PackCmd::Init { dir } => pack::init(&dir)?,
             PackCmd::List { episode } => pack::list(&load(&episode)?)?,
         },
+        Cmd::Guide => {
+            print!("{}", include_str!("../guide.md"));
+        }
         Cmd::Templates { episode } => {
             catalog::list(&catalog_roots(episode.as_deref())?)?;
         }
