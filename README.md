@@ -61,7 +61,8 @@ Just want the binary in a shell without the dev tooling?
 
 ```bash
 nix shell .#videoeditor            # binary on PATH for this shell (or github:security-union/videoeditor)
-nix run . -- build my-short       # one-off invocation
+nix run . -- build my-short       # one-off invocation (apps.default)
+nix run .#videoeditor -- --help    # same, addressing the package explicitly
 nix profile install .              # permanent install
 ```
 
