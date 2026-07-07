@@ -1,8 +1,7 @@
 # Format: meme-benchmark
 
-The "X vs Y with receipts" dev short. Reverse-engineered from a viral
-"Rust vs Python parallel programming" short (20.10s),
-then evolved into a receipts-driven mini-explainer.
+The "X vs Y with receipts" dev short: a ~20-second tribal matchup backed by
+real benchmark numbers, evolved into a receipts-driven mini-explainer.
 
 > The channel-wide production rules (REAL experiments, on-screen code
 > standards, review process, pacing) live in `videoeditor guide` and
