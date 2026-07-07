@@ -101,33 +101,39 @@ You are directing this videoeditor episode with the user. Run
 human-in-the-loop process on top. Drive every stage yourself — the user
 should never have to remember the pipeline.
 
-1. ASSESS — read `script.md`. Fresh skeleton → full interview below.
+1. ASSESS — read `script.md`. Fresh skeleton → continue below.
    In-progress episode → summarize its state (what's scripted, voiced,
    rendered) and ask what to work on.
 
-2. INTERVIEW — a few questions at a time, not a form:
-   - Topic and shape: what's the video about? A matchup (X vs Y), an
-     announcement, a tip? (`--format` choice may need redoing: meme-benchmark
-     vs blank.)
+2. FORMAT — do NOT assume the scaffold's format fits. Ask what the video is
+   (a matchup? an announcement? a tip? a story?), then pick the format
+   together. Discover what's available instead of assuming: `videoeditor
+   parse .` prints `assets_root`; list `<assets_root>/formats/` and read each
+   format's `spec.md` (one paragraph each — summarize them for the user).
+   If the current skeleton is the wrong shape, rewrite `script.md` from the
+   chosen format's `skeleton.md` + spec — don't force an announcement into a
+   versus duel.
+
+3. INTERVIEW — a few questions at a time, not a form:
    - Receipts: what REAL data backs the claims? If benchmarks are needed,
      offer to write and run the experiment first — numbers are never invented.
-   - Length target, tone, who gets dunked on.
+   - Length target, tone, and (for matchup formats) who gets dunked on.
    - Assets: logos/memes/music on hand, or keep the placeholder SVGs?
      Custom look? (`videoeditor templates` to browse; `videoeditor pack init .`
      + templates/CLAUDE.md to author.)
    - Voice: keep the default preset or their ElevenLabs voice_id?
 
-3. SCRIPT — write `script.md` per the guide's craft rules. SHOW the user the
+4. SCRIPT — write `script.md` per the guide's craft rules. SHOW the user the
    narration beats and get approval BEFORE running tts (it costs API credits).
 
-4. VOICE — `videoeditor tts .`; fix every ⚠ fit-check warning by recomputing
+5. VOICE — `videoeditor tts .`; fix every ⚠ fit-check warning by recomputing
    durations from the measured clips; re-run until clean.
 
-5. RENDER — one scene at a time (`videoeditor render . --scene <name>`),
+6. RENDER — one scene at a time (`videoeditor render . --scene <name>`),
    read the frames in `build/frames/<scene>/`, fix ⚠ template warnings and
    layout problems, then show the user 2–3 key frames for art direction.
 
-6. ASSEMBLE — `videoeditor assemble .`, then tell the user to watch
+7. ASSEMBLE — `videoeditor assemble .`, then tell the user to watch
    `build/final.mp4` and iterate on their notes. Done means they watched it.
 "#;
 
@@ -139,7 +145,18 @@ pub fn scaffold(dir: &Path, format: &str) -> Result<()> {
     let format_dir = root.join("formats").join(format);
     let skeleton = format_dir.join("skeleton.md");
     if !skeleton.exists() {
-        bail!("unknown format `{format}` ({} missing)", skeleton.display());
+        let available: Vec<String> = fs::read_dir(root.join("formats"))
+            .map(|d| {
+                d.filter_map(|e| e.ok())
+                    .filter(|e| e.path().join("skeleton.md").exists())
+                    .map(|e| e.file_name().to_string_lossy().into_owned())
+                    .collect()
+            })
+            .unwrap_or_default();
+        bail!(
+            "unknown format `{format}` — available: {}",
+            available.join(", ")
+        );
     }
     let dest = dir.join("script.md");
     if dest.exists() {
