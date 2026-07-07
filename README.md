@@ -219,7 +219,10 @@ the same `script.md` grammar through entirely different visual identities:
 
 A pack file named like a built-in **overrides** it. `videoeditor pack list
 <episode>` prints the layers and exactly which file every scene resolves to;
-renders log the source when a template comes from a pack.
+renders log the source when a template comes from a pack. A single video gets
+unique templates the same way — its `templates/scenes/` is the most specific
+layer (`videoeditor pack init <episode>` scaffolds it). Full guide with a
+worked channel layout: [docs/templates.md](docs/templates.md).
 
 **Don't hand-write frame-by-frame animation.** `pack init` drops a `CLAUDE.md`
 into the pack that turns Claude Code into that pack's template engineer — it

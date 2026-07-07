@@ -97,6 +97,8 @@ pub fn scaffold(dir: &Path, format: &str) -> Result<()> {
     fs::create_dir_all(dir.join("assets/music"))?;
     fs::create_dir_all(dir.join("audio/clips"))?;
     fs::create_dir_all(dir.join("build"))?;
+    // per-video templates: anything here wins over packs and built-ins
+    fs::create_dir_all(dir.join("templates/scenes"))?;
     if format_dir.join("assets").is_dir() {
         copy_tree(&format_dir.join("assets"), &dir.join("assets"))?;
     }

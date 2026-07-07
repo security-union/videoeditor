@@ -137,10 +137,12 @@ frame-QAs the template with you.
 "#;
 
 /// Scaffold a self-contained pack: example template + vendored scene runtime.
+/// Also works on an episode dir — an episode's `templates/` is just the most
+/// specific pack layer, so this is how a single video gets unique templates.
 pub fn init(dir: &Path) -> Result<()> {
     let scenes = dir.join("templates/scenes");
-    if scenes.exists() {
-        bail!("{} already exists", scenes.display());
+    if scenes.join("_lib").exists() || scenes.join("my-scene.html").exists() {
+        bail!("{} is already a pack", scenes.display());
     }
     fs::create_dir_all(&scenes)?;
 
