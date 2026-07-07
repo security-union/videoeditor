@@ -23,14 +23,16 @@ nix profile install github:security-union/videoeditor   # install the CLI
 nix run github:security-union/videoeditor -- --help
 ```
 
-The nix-built binary is wrapped so its pinned ffmpeg is always found — nothing
-to apt/brew install, no version drift. Two things stay outside the pin:
-**Chrome on macOS** (nixpkgs can't ship it there; the system install is
-auto-detected, `CHROME_BIN` overrides — Linux gets a pinned chromium) and your
-**`ELEVENLABS_API_KEY`** ([elevenlabs.io](https://elevenlabs.io) → profile →
-API keys; free tier is enough for shorts), which is only needed by `tts` and
-`analyze` — `parse`, `new`, `render`, and `assemble` of already-voiced
-episodes run keyless.
+The nix-built binary is wrapped so **every** runtime dependency is pinned —
+ffmpeg on all systems, nixpkgs chromium on Linux, and on macOS the
+free-licensed **Chrome for Testing** from the playwright browser bundle
+(nixpkgs' `chromium` is Linux-only and `google-chrome` is unfree; `CHROME_BIN`
+still overrides if you prefer your own). Nothing to apt/brew install, no
+version drift: the same flake.lock renders the same pixels everywhere. The
+only thing outside the pin is your **`ELEVENLABS_API_KEY`**
+([elevenlabs.io](https://elevenlabs.io) → profile → API keys; free tier is
+enough for shorts), needed only by `tts` and `analyze` — `parse`, `new`,
+`render`, and `assemble` of already-voiced episodes run keyless.
 
 Contributors: `nix develop` (or `direnv allow` — `.envrc` is committed) drops
 you in the pinned dev shell with rustc, ffmpeg, just, and rust-analyzer;
@@ -175,9 +177,10 @@ my-short/
 Two distribution channels, both fed from the same tag:
 
 - **nix flake (preferred)** — `nix profile install github:security-union/videoeditor`
-  builds from the committed `flake.lock`: pinned rustc, pinned ffmpeg (pinned
-  chromium on Linux), binary wrapped so those exact versions are found at
-  runtime. Fully deterministic; CI builds the flake on every PR.
+  builds from the committed `flake.lock`: pinned rustc, pinned ffmpeg, pinned
+  browser (chromium on Linux, playwright's Chrome for Testing on macOS),
+  binary wrapped so those exact versions are found at runtime. Fully
+  deterministic; CI builds the flake on every PR.
 - **crates.io** — released with [release-plz](https://release-plz.dev):
   merging the release PR bumps versions, updates changelogs, tags, and
   publishes all five crates. The crate is a complete install (templates
