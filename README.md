@@ -38,6 +38,14 @@ Contributors: `nix develop` (or `direnv allow` — `.envrc` is committed) drops
 you in the pinned dev shell with rustc, ffmpeg, just, and rust-analyzer;
 `just --list` shows the task recipes.
 
+The pinned browser is an ordinary Chrome for Testing binary and `$CHROME_BIN`
+points at it in the dev shell — any CDP client can reuse it. If you script
+against the templates with puppeteer or playwright, aim them at the same
+binary (`PUPPETEER_SKIP_DOWNLOAD=1` +
+`puppeteer.launch({ executablePath: process.env.CHROME_BIN })`, or
+`PLAYWRIGHT_BROWSERS_PATH`) instead of letting them download their own —
+one browser build, identical pixels everywhere.
+
 ### Without nix
 
 `videoeditor` is a single Rust binary that orchestrates tools on your PATH
