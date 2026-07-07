@@ -66,6 +66,9 @@ pub fn run(ep: &Episode, only_chunk: Option<&str>, force: bool) -> Result<()> {
         manifest_path.display(),
         manifest.len()
     );
+    for w in ep.fit_check(&manifest) {
+        println!("tts: ⚠ {w}");
+    }
     Ok(())
 }
 

@@ -21,11 +21,11 @@ jobs:
         with:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
-      - name: fmt
-        run: cargo fmt --all --check
-      - name: clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
+      - uses: taiki-e/install-action@just
+      # same recipes developers run locally — see justfile
+      - name: check (clippy + fmt)
+        run: just check
       - name: test
-        run: cargo test --workspace
+        run: just test
       - name: build
-        run: cargo build --workspace --release
+        run: just build

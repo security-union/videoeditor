@@ -27,7 +27,7 @@
 
             # Repo tooling
             git
-            gnumake
+            just
             jq
           ];
 

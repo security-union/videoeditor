@@ -17,8 +17,11 @@ vertical video out via headless Chrome + ffmpeg + ElevenLabs).
 
 ## Commands
 
-- `make check` — clippy -D warnings + fmt --check (CI-gating).
-- `cargo test --workspace` — parser tests live in videoeditor-timeline.
+- `just check` — clippy -D warnings + fmt --check (CI runs the same recipe).
+- `just test` / `cargo test --workspace` — parser + fit-check tests live in
+  videoeditor-timeline.
+- After ANY voice or timing change: re-run tts → heed the fit-check warnings
+  (`⚠ narration overlap/truncated`) → recompute scene durations → re-render.
 - `cargo run -p videoeditor -- build examples/hello-bench` — end-to-end smoke
   (needs Chrome, ffmpeg, ELEVENLABS_API_KEY).
 

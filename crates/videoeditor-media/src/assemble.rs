@@ -36,6 +36,9 @@ pub fn run(ep: &Episode) -> Result<()> {
 
     // 2. build the audio mix graph
     let manifest = ep.read_clip_manifest()?;
+    for w in ep.fit_check(&manifest) {
+        println!("assemble: ⚠ {w}");
+    }
     let mut inputs: Vec<String> = vec![concat.display().to_string()];
     let mut chains: Vec<String> = Vec::new();
     let mut mix_labels: Vec<String> = Vec::new();
@@ -133,12 +136,14 @@ pub fn run(ep: &Episode) -> Result<()> {
         // NB: trim to episode length INSIDE the graph — an output-side `-t`
         // combined with -c:v copy + filter_complex silently drops the mixed
         // narration on ffmpeg 7.1 (only the longest input survives).
+        // apad afterwards so the audio track spans the full video even when
+        // narration ends early (players handle a short track inconsistently).
         let filter = format!(
-            "{};{}amix=inputs={}:duration=longest:normalize=0,atrim=0:{}[mix]",
+            "{};{}amix=inputs={}:duration=longest:normalize=0,atrim=0:{dur},apad=whole_dur={dur}[mix]",
             chains.join(";"),
             mix_inputs,
             mix_labels.len(),
-            ep.total_duration
+            dur = ep.total_duration
         );
         if std::env::var("VIDEOEDITOR_DEBUG").is_ok() {
             println!("assemble: inputs = {inputs:#?}");

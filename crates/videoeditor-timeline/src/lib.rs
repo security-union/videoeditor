@@ -110,6 +110,56 @@ impl Episode {
         }
         Ok(serde_json::from_str(&fs::read_to_string(p)?)?)
     }
+
+    /// Fit-check: narration must fit the timeline. A single narrator can't
+    /// say two chunks at once, so a chunk whose measured clip is still
+    /// playing when the next chunk starts is always a bug (it renders as
+    /// garbled, overlapping voices). Crossing a SCENE boundary is fine —
+    /// continuous narration over a cut is a feature of the format.
+    ///
+    /// Returns one human-readable warning per violation (empty = fits).
+    /// Recipe when it fires: scene duration = chunk `at` + clip/tempo + hold,
+    /// then re-place downstream `at`s — see PRODUCTION.md Rule 5.
+    pub fn fit_check(&self, manifest: &[ClipInfo]) -> Vec<String> {
+        let mut spans: Vec<(String, f64, f64)> = Vec::new(); // (name, abs start, abs end)
+        for scene in &self.scenes {
+            let mut cursor = 0.0f64;
+            for chunk in &scene.chunks {
+                let Some(clip) = manifest
+                    .iter()
+                    .find(|c| c.scene == scene.name && c.chunk == chunk.name)
+                else {
+                    continue; // tts not run yet for this chunk — nothing to check
+                };
+                let rel_at = chunk.at.unwrap_or(cursor);
+                let start = scene.start + rel_at;
+                let end = start + clip.duration / chunk.tempo;
+                cursor = rel_at + clip.duration / chunk.tempo + 0.15;
+                spans.push((format!("{}/{}", scene.name, chunk.name), start, end));
+            }
+        }
+        let mut warnings = Vec::new();
+        for pair in spans.windows(2) {
+            let (prev, prev_start, prev_end) = &pair[0];
+            let (next, next_start, _) = &pair[1];
+            if next_start < prev_end {
+                warnings.push(format!(
+                    "narration overlap: {prev} plays {prev_start:.2}–{prev_end:.2}s but {next} \
+                     starts at {next_start:.2}s — voices will talk over each other"
+                ));
+            }
+        }
+        if let Some((last, _, last_end)) = spans.last() {
+            if *last_end > self.total_duration + 0.05 {
+                warnings.push(format!(
+                    "narration truncated: {last} ends at {last_end:.2}s but the video ends at \
+                     {:.2}s",
+                    self.total_duration
+                ));
+            }
+        }
+        warnings
+    }
 }
 
 pub fn load(episode_dir: &Path, assets_root: &Path) -> Result<Episode> {
@@ -454,6 +504,44 @@ Second line joins the same chunk.
         }
         assert_eq!(scenes[1].start, 2.1);
         assert!((cursor - 10.7).abs() < 1e-9);
+    }
+
+    #[test]
+    fn fit_check_flags_overlap_and_truncation() {
+        let mut scenes = parse(SCRIPT);
+        let mut cursor = 0.0;
+        for s in &mut scenes {
+            s.start = cursor;
+            cursor += s.duration;
+        }
+        let ep = Episode {
+            root: PathBuf::new(),
+            assets_root: PathBuf::new(),
+            meta: parse_meta(&split_frontmatter(SCRIPT).unwrap().0).unwrap(),
+            scenes,
+            total_duration: cursor, // 10.7
+        };
+        let clip = |scene: &str, chunk: &str, duration: f64| ClipInfo {
+            scene: scene.into(),
+            chunk: chunk.into(),
+            file: String::new(),
+            duration,
+        };
+        // fits: hook (starts 0.15) ends before explain starts (2.4 + 0.2)
+        let ok = vec![clip("title", "hook", 2.0), clip("good", "explain", 4.0)];
+        assert!(ep.fit_check(&ok).is_empty());
+
+        // hook clip runs past explain's start → overlap
+        let overlap = vec![clip("title", "hook", 3.0), clip("good", "explain", 4.0)];
+        let warnings = ep.fit_check(&overlap);
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].contains("overlap"));
+
+        // explain clip runs past the end of the video → truncation
+        let long = vec![clip("good", "explain", 20.0)];
+        let warnings = ep.fit_check(&long);
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].contains("truncated"));
     }
 
     #[test]
