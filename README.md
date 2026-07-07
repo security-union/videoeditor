@@ -3,21 +3,35 @@
 Scripted short-video renderer for developers who'd rather write markdown than
 open DaVinci. `script.md` in → rendered vertical video out.
 
+![five scenes from the bundled hello-bench example](docs/demo.jpg)
+*The bundled `examples/hello-bench` episode — five scenes, rendered entirely
+from markdown + SVG placeholders. This strip is the actual output.*
+
 - **Rust** orchestrates everything (`videoeditor`, one binary).
 - **Web tech** does animation & composition: scenes are HTML/CSS/JS templates,
   rendered frame-by-frame by headless Chrome as pure functions of `(data, t)` —
   deterministic, no flaky screen recording.
 - **ffmpeg** does the heavy lifting: scene encodes, concat, audio mix.
 - **ElevenLabs** voices the narration and transcribes reference videos.
+- **Built to be driven by [Claude Code](https://claude.com/claude-code)** —
+  the repo ships the production rulebook an AI director follows (see below).
 
 ## Bootstrap
 
-**The preferred path is nix** — one command builds the pinned binary AND its
-media toolchain deterministically from the committed `flake.lock`, so every
-machine gets the exact same rustc, ffmpeg (and on Linux, chromium):
+### 1. Install nix (once)
+
+Nix is the preferred path: one command builds the pinned binary AND its whole
+media toolchain deterministically from the committed `flake.lock` — the same
+rustc, ffmpeg, and browser on every machine. Install it with the
+[Determinate Systems installer](https://install.determinate.systems):
 
 ```bash
-# install nix once: https://install.determinate.systems
+curl -fsSL https://install.determinate.systems/nix | sh -s -- install
+```
+
+### 2. Install videoeditor
+
+```bash
 nix profile install github:security-union/videoeditor   # install the CLI
 # …or try it without installing:
 nix run github:security-union/videoeditor -- --help
@@ -65,35 +79,51 @@ cargo install videoeditor        # or: cargo install --path crates/videoeditor
 
 macOS and Linux are supported; on Windows use WSL.
 
-### Your first video
+### 3. Your first video
 
 ```bash
-export ELEVENLABS_API_KEY=...
+export ELEVENLABS_API_KEY=...      # https://elevenlabs.io → profile → API keys
 
-# render the bundled example end to end (from a source checkout)
-videoeditor build examples/hello-bench
-open examples/hello-bench/build/final.mp4
-
-# start your own
-videoeditor new my-first-short     # scaffold from formats/meme-benchmark
-$EDITOR my-first-short/script.md   # write scenes + narration (grammar below)
+videoeditor new my-first-short     # runnable scaffold: placeholder SVGs + code included
 videoeditor build my-first-short   # tts → render → assemble
 open my-first-short/build/final.mp4
 ```
 
-Iterating: `videoeditor tts <dir>` re-voices only missing/changed chunks
-(`--chunk name --force` to re-roll one take) and prints ⚠ fit-check warnings
+The scaffold renders as-is — replace the placeholder narration, code panels,
+and SVG memes as your episode takes shape. (The bundled
+`examples/hello-bench` needs a source checkout: `git clone` this repo, then
+`videoeditor build examples/hello-bench`.)
+
+Iterating: `videoeditor tts <dir>` re-voices only missing/changed clips
+(`--clip name --force` to re-roll one take) and prints ⚠ fit-check warnings
 when narration overlaps; `videoeditor render <dir> --scene name` re-renders a
 single scene; `videoeditor assemble <dir>` re-mixes in seconds. Hacking on the
 HTML templates? Point `VIDEOEDITOR_ROOT` at your checkout and edits apply
 without rebuilding.
+
+### 4. Let Claude direct
+
+This tool is designed to pair with **[Claude Code](https://claude.com/claude-code)**
+as the director: the repo ships [PRODUCTION.md](PRODUCTION.md) (the craft
+rulebook — real benchmark receipts, narration fit-checks, congruence rules,
+frame-QA ritual) and a [CLAUDE.md](CLAUDE.md) that teaches the pipeline.
+Open Claude Code in your episode directory (keep a copy of PRODUCTION.md
+next to it) and ask for an episode:
+
+> "Make a 25-second short: Rust vs Go parsing a 1GB JSON file. Run a real
+> benchmark first, then script it, voice it, render it, and QA the frames."
+
+Claude runs the benchmark, writes `script.md`, calls `videoeditor tts`,
+recomputes timings from the fit-check warnings, renders scene by scene, and
+inspects extracted frames — the same loop a human editor would run, minus
+the human.
 
 ## Pipeline
 
 ```
 script.md ──parse──► timeline plan
    │
-   ├─ videoeditor tts       [CHUNK:] → ElevenLabs → audio/clips/<scene>__<chunk>.mp3 + clips.json
+   ├─ videoeditor tts       [CLIP:] → ElevenLabs → audio/clips/<scene>__<clip>.mp3 + clips.json
    ├─ videoeditor render    [SCENE:] → Chrome frames → ffmpeg → build/scenes/NN_name.mp4
    └─ videoeditor assemble  concat + narration@offsets + clip audio + music → build/final.mp4
 ```
@@ -129,9 +159,9 @@ music_gain_db: -20
 [SCENE: name | template=code-meme duration=6.42]
 [DATA: code=assets/code/threads.rs meme=assets/memes/happy.svg pointer=true]
 [DATA: bench="Execution time:|μ: 150µS|σ: 50µS" bench_at=5.8]
-[CHUNK: explain | at=0.19]
+[CLIP: explain | at=0.19]
 Narration text until the next marker. `at` = seconds from scene start
-(omit to auto-place after the previous chunk). `tempo=1.05` speeds the clip.
+(omit to auto-place after the previous clip). `tempo=1.05` speeds the clip.
 
 [SCENE: outro | template=video-clip duration=2.2]
 [DATA: src=assets/clips/punchline.mp4 seek=0]   # keeps native audio; audio=false to mute
@@ -146,7 +176,7 @@ Narration text until the next marker. `at` = seconds from scene start
 
 A template is one HTML file. Contract: the renderer loads the page, injects the
 merged `[DATA:]` map via CDP, then per frame calls `__sceneSeek(t)` and
-screenshots. Everything visible must derive from `SCENE.d` (data keys, asset
+screenclips. Everything visible must derive from `SCENE.d` (data keys, asset
 paths already inlined as data: URIs, plus `codeText`, `duration`, `width`,
 `height`) and `SCENE.t`. No CSS animations, no timers — pure state.
 

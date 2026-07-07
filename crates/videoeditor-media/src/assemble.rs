@@ -47,25 +47,25 @@ pub fn run(ep: &Episode) -> Result<()> {
     // narration clips
     for scene in &ep.scenes {
         let mut cursor = 0.0f64;
-        for chunk in &scene.chunks {
-            let Some(clip) = manifest
+        for clip in &scene.clips {
+            let Some(measured) = manifest
                 .iter()
-                .find(|c| c.scene == scene.name && c.chunk == chunk.name)
+                .find(|c| c.scene == scene.name && c.clip == clip.name)
             else {
                 bail!(
                     "no TTS clip for {}/{} — run `videoeditor tts`",
                     scene.name,
-                    chunk.name
+                    clip.name
                 );
             };
-            let rel_at = chunk.at.unwrap_or(cursor);
-            cursor = rel_at + clip.duration / chunk.tempo + 0.15;
+            let rel_at = clip.at.unwrap_or(cursor);
+            cursor = rel_at + measured.duration / clip.tempo + 0.15;
             let abs_ms = ((scene.start + rel_at) * 1000.0).round() as i64;
             let idx = inputs.len();
-            inputs.push(ep.root.join(&clip.file).display().to_string());
+            inputs.push(ep.root.join(&measured.file).display().to_string());
             let label = format!("n{idx}");
-            let tempo = if (chunk.tempo - 1.0).abs() > 1e-6 {
-                format!("atempo={},", chunk.tempo)
+            let tempo = if (clip.tempo - 1.0).abs() > 1e-6 {
+                format!("atempo={},", clip.tempo)
             } else {
                 String::new()
             };

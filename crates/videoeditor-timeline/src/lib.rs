@@ -15,7 +15,7 @@
 //!
 //! [SCENE: name | template=code-meme duration=6.42]
 //! [DATA: code=assets/code/threads.rs lang=rust bench="μ: 150µS|σ: 50µS" bench_at=5.8]
-//! [CHUNK: threads | at=0.19]
+//! [CLIP: threads | at=0.19]
 //! Narration text until the next marker.
 //! ```
 //!
@@ -62,14 +62,14 @@ pub struct Scene {
     /// Absolute start time in the final timeline (computed).
     pub start: f64,
     pub data: Map<String, Value>,
-    pub chunks: Vec<Chunk>,
+    pub clips: Vec<Clip>,
 }
 
 #[derive(Debug, Serialize)]
-pub struct Chunk {
+pub struct Clip {
     pub name: String,
     pub text: String,
-    /// Offset from scene start, seconds. None = after previous chunk.
+    /// Offset from scene start, seconds. None = after previous clip.
     pub at: Option<f64>,
     pub tempo: f64,
 }
@@ -79,7 +79,7 @@ pub struct Chunk {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ClipInfo {
     pub scene: String,
-    pub chunk: String,
+    pub clip: String,
     pub file: String,
     pub duration: f64,
 }
@@ -112,30 +112,30 @@ impl Episode {
     }
 
     /// Fit-check: narration must fit the timeline. A single narrator can't
-    /// say two chunks at once, so a chunk whose measured clip is still
-    /// playing when the next chunk starts is always a bug (it renders as
+    /// say two clips at once, so a clip whose measured audio is still
+    /// playing when the next clip starts is always a bug (it renders as
     /// garbled, overlapping voices). Crossing a SCENE boundary is fine —
     /// continuous narration over a cut is a feature of the format.
     ///
     /// Returns one human-readable warning per violation (empty = fits).
-    /// Recipe when it fires: scene duration = chunk `at` + clip/tempo + hold,
+    /// Recipe when it fires: scene duration = clip `at` + audio/tempo + hold,
     /// then re-place downstream `at`s — see PRODUCTION.md Rule 5.
     pub fn fit_check(&self, manifest: &[ClipInfo]) -> Vec<String> {
         let mut spans: Vec<(String, f64, f64)> = Vec::new(); // (name, abs start, abs end)
         for scene in &self.scenes {
             let mut cursor = 0.0f64;
-            for chunk in &scene.chunks {
-                let Some(clip) = manifest
+            for clip in &scene.clips {
+                let Some(measured) = manifest
                     .iter()
-                    .find(|c| c.scene == scene.name && c.chunk == chunk.name)
+                    .find(|c| c.scene == scene.name && c.clip == clip.name)
                 else {
-                    continue; // tts not run yet for this chunk — nothing to check
+                    continue; // tts not run yet for this clip — nothing to check
                 };
-                let rel_at = chunk.at.unwrap_or(cursor);
+                let rel_at = clip.at.unwrap_or(cursor);
                 let start = scene.start + rel_at;
-                let end = start + clip.duration / chunk.tempo;
-                cursor = rel_at + clip.duration / chunk.tempo + 0.15;
-                spans.push((format!("{}/{}", scene.name, chunk.name), start, end));
+                let end = start + measured.duration / clip.tempo;
+                cursor = rel_at + measured.duration / clip.tempo + 0.15;
+                spans.push((format!("{}/{}", scene.name, clip.name), start, end));
             }
         }
         let mut warnings = Vec::new();
@@ -256,13 +256,13 @@ fn parse_meta(front: &str) -> Result<Meta> {
 
 fn parse_scenes(body: &str) -> Result<Vec<Scene>> {
     let mut scenes: Vec<Scene> = Vec::new();
-    let mut chunk_text: Vec<String> = Vec::new();
+    let mut clip_text: Vec<String> = Vec::new();
 
-    fn flush_chunk(scenes: &mut [Scene], buf: &mut Vec<String>) {
+    fn flush_clip(scenes: &mut [Scene], buf: &mut Vec<String>) {
         if let Some(scene) = scenes.last_mut() {
-            if let Some(chunk) = scene.chunks.last_mut() {
-                if chunk.text.is_empty() {
-                    chunk.text = buf.join(" ").trim().to_string();
+            if let Some(clip) = scene.clips.last_mut() {
+                if clip.text.is_empty() {
+                    clip.text = buf.join(" ").trim().to_string();
                 }
             }
         }
@@ -284,7 +284,7 @@ fn parse_scenes(body: &str) -> Result<Vec<Scene>> {
             continue;
         }
         if let Some(marker) = parse_marker(trimmed, "SCENE") {
-            flush_chunk(&mut scenes, &mut chunk_text);
+            flush_clip(&mut scenes, &mut clip_text);
             let (name, attrs) = marker;
             let template = attr_str(&attrs, "template")
                 .with_context(|| format!("scene `{name}` missing template="))?;
@@ -302,17 +302,17 @@ fn parse_scenes(body: &str) -> Result<Vec<Scene>> {
                 duration,
                 start: 0.0,
                 data,
-                chunks: vec![],
+                clips: vec![],
             });
         } else if let Some((_, attrs)) = parse_marker(trimmed, "DATA") {
             let scene = scenes.last_mut().context("[DATA:] before any [SCENE:]")?;
             for (k, v) in attrs {
                 scene.data.insert(k, to_value(&v));
             }
-        } else if let Some((name, attrs)) = parse_marker(trimmed, "CHUNK") {
-            flush_chunk(&mut scenes, &mut chunk_text);
-            let scene = scenes.last_mut().context("[CHUNK:] before any [SCENE:]")?;
-            scene.chunks.push(Chunk {
+        } else if let Some((name, attrs)) = parse_marker(trimmed, "CLIP") {
+            flush_clip(&mut scenes, &mut clip_text);
+            let scene = scenes.last_mut().context("[CLIP:] before any [SCENE:]")?;
+            scene.clips.push(Clip {
                 name,
                 text: String::new(),
                 at: attr_f64(&attrs, "at").ok(),
@@ -321,10 +321,10 @@ fn parse_scenes(body: &str) -> Result<Vec<Scene>> {
         } else if trimmed.starts_with('[') && trimmed.ends_with(']') {
             // unknown marker ([IMAGE:], [SFX:], comments) — ignored, not narrated
         } else if !trimmed.is_empty() && !trimmed.starts_with('#') {
-            chunk_text.push(trimmed.to_string());
+            clip_text.push(trimmed.to_string());
         }
     }
-    flush_chunk(&mut scenes, &mut chunk_text);
+    flush_clip(&mut scenes, &mut clip_text);
 
     if scenes.is_empty() {
         bail!("script.md contains no [SCENE:] markers");
@@ -437,14 +437,14 @@ music: assets/music/bed.mp3
 
 [SCENE: title | template=title-card duration=2.1]
 [DATA: title="X vs Y" title_at=1200]
-[CHUNK: hook | at=0.15]
+[CLIP: hook | at=0.15]
 X versus Y for TOPIC.
 
 [SCENE: good | template=code-meme duration=6.4]
 [DATA: code=assets/code/good.rs bench="μ: 150µS|σ: 50µS" flat=true]
-[CHUNK: explain | at=0.2 tempo=1.05]
+[CLIP: explain | at=0.2 tempo=1.05]
 First line.
-Second line joins the same chunk.
+Second line joins the same clip.
 
 [SCENE: outro | template=video-clip duration=2.2]
 [DATA: src=assets/clips/punchline.mp4 seek=0 audio=false]
@@ -467,7 +467,7 @@ Second line joins the same chunk.
     }
 
     #[test]
-    fn parses_scenes_chunks_and_data() {
+    fn parses_scenes_clips_and_data() {
         let scenes = parse(SCRIPT);
         assert_eq!(scenes.len(), 3);
 
@@ -475,17 +475,17 @@ Second line joins the same chunk.
         assert_eq!(title.template, "title-card");
         assert_eq!(title.data_str("title"), Some("X vs Y"));
         assert_eq!(title.data_f64("title_at"), Some(1200.0));
-        assert_eq!(title.chunks[0].text, "X versus Y for TOPIC.");
-        assert_eq!(title.chunks[0].at, Some(0.15));
+        assert_eq!(title.clips[0].text, "X versus Y for TOPIC.");
+        assert_eq!(title.clips[0].at, Some(0.15));
 
         let good = &scenes[1];
         // quoted value keeps its inner `|`
         assert_eq!(good.data_str("bench"), Some("μ: 150µS|σ: 50µS"));
         assert_eq!(good.data.get("flat"), Some(&Value::Bool(true)));
-        assert_eq!(good.chunks[0].tempo, 1.05);
+        assert_eq!(good.clips[0].tempo, 1.05);
         assert_eq!(
-            good.chunks[0].text,
-            "First line. Second line joins the same chunk."
+            good.clips[0].text,
+            "First line. Second line joins the same clip."
         );
 
         let outro = &scenes[2];
@@ -521,9 +521,9 @@ Second line joins the same chunk.
             scenes,
             total_duration: cursor, // 10.7
         };
-        let clip = |scene: &str, chunk: &str, duration: f64| ClipInfo {
+        let clip = |scene: &str, clip: &str, duration: f64| ClipInfo {
             scene: scene.into(),
-            chunk: chunk.into(),
+            clip: clip.into(),
             file: String::new(),
             duration,
         };

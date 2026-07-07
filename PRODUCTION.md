@@ -71,16 +71,16 @@ trade-offs, not fake wins) → BAD (disgusted meme + dunk) → SCOREBOARD (held
   narration mirrors the title-card text; the 👉 pointer lands on a line at the
   moment the narration names it; each topic gets its OWN screen — never talk
   concepts over stale numbers.
-- Fit-check every chunk after TTS: scene duration = chunk `at` + raw/tempo +
+- Fit-check every clip after TTS: scene duration = clip `at` + raw/tempo +
   hold; visual cue time = at + (raw/tempo) × (char offset of the keyword ÷
-  chunk length). Recompute after EVERY voice or text change.
+  clip length). Recompute after EVERY voice or text change.
 
 ## Rule 6 — Review before render
 
 Run two independent reviews of script + code + bench before rendering:
 one **methodology skeptic** (compilability, false claims, roast-magnets —
 fix them, keep deliberate Cunningham bait) and one **shareability critic**
-(cleverness, what's on screen for muted viewers, the screenshottable frame).
+(cleverness, what's on screen for muted viewers, the screencliptable frame).
 Synthesize; the director's word wins.
 
 ## Rule 7 — Repo hygiene
@@ -93,7 +93,7 @@ Synthesize; the director's word wins.
 Ship an `education.json` next to `script.md`: one entry per explanation —
 the time it STARTS plus the exact question it answers, written the way a
 learner would search it. Derive timestamps from the assembled timeline
-(`videoeditor parse` scene starts + chunk `at` offsets + keyword cues located
+(`videoeditor parse` scene starts + clip `at` offsets + keyword cues located
 in the measured TTS clips) — **real, never guessed**, regenerated whenever
 timings change.
 
@@ -117,8 +117,8 @@ timings change.
 - HTML comments in script.md are stripped (never narrated).
 - Scene indices prefix rendered files (`build/scenes/NN_name.mp4`) — inserting
   a scene shifts them; re-render or rename.
-- Moving a chunk between scenes renames its clip key
-  (`<scene>__<chunk>.mp3`) — `mv` the file to keep a good take.
+- Moving a clip between scenes renames its clip key
+  (`<scene>__<clip>.mp3`) — `mv` the file to keep a good take.
 - TTS takes vary run-to-run at low stability — re-roll a slow take before
   rewriting script text.
 - Iterate visuals by rendering ONE scene (`--scene X`) and QA-ing extracted

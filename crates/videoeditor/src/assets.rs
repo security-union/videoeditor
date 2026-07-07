@@ -76,24 +76,45 @@ fn extract(dir: &Dir, to: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Scaffold a new episode directory from a format skeleton.
+/// Scaffold a new episode directory from a format skeleton. Formats ship
+/// starter assets (placeholder SVG memes/logos, code panels) so the scaffold
+/// renders out of the box; users replace them as the episode takes shape.
 pub fn scaffold(dir: &Path, format: &str) -> Result<()> {
     let root = find_root()?;
-    let skeleton = root.join("formats").join(format).join("skeleton.md");
+    let format_dir = root.join("formats").join(format);
+    let skeleton = format_dir.join("skeleton.md");
     if !skeleton.exists() {
         bail!("unknown format `{format}` ({} missing)", skeleton.display());
     }
-    fs::create_dir_all(dir.join("assets/code"))?;
-    fs::create_dir_all(dir.join("assets/memes"))?;
-    fs::create_dir_all(dir.join("assets/clips"))?;
-    fs::create_dir_all(dir.join("assets/music"))?;
-    fs::create_dir_all(dir.join("audio/clips"))?;
-    fs::create_dir_all(dir.join("build"))?;
     let dest = dir.join("script.md");
     if dest.exists() {
         bail!("{} already exists", dest.display());
     }
+    fs::create_dir_all(dir.join("assets/code"))?;
+    fs::create_dir_all(dir.join("assets/memes"))?;
+    fs::create_dir_all(dir.join("assets/logos"))?;
+    fs::create_dir_all(dir.join("assets/clips"))?;
+    fs::create_dir_all(dir.join("assets/music"))?;
+    fs::create_dir_all(dir.join("audio/clips"))?;
+    fs::create_dir_all(dir.join("build"))?;
+    if format_dir.join("assets").is_dir() {
+        copy_tree(&format_dir.join("assets"), &dir.join("assets"))?;
+    }
     fs::copy(&skeleton, &dest)?;
     println!("scaffolded {} from format `{format}`", dir.display());
+    Ok(())
+}
+
+fn copy_tree(from: &Path, to: &Path) -> Result<()> {
+    fs::create_dir_all(to)?;
+    for entry in fs::read_dir(from)? {
+        let entry = entry?;
+        let target = to.join(entry.file_name());
+        if entry.file_type()?.is_dir() {
+            copy_tree(&entry.path(), &target)?;
+        } else {
+            fs::copy(entry.path(), &target)?;
+        }
+    }
     Ok(())
 }

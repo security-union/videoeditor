@@ -24,9 +24,9 @@ enum Cmd {
     /// Generate narration clips via ElevenLabs (skips existing clips)
     Tts {
         episode: PathBuf,
-        /// Regenerate only this chunk (scene/chunk name)
+        /// Regenerate only this clip (scene/clip name)
         #[arg(long)]
-        chunk: Option<String>,
+        clip: Option<String>,
         /// Regenerate even if the clip already exists
         #[arg(long)]
         force: bool,
@@ -87,11 +87,11 @@ fn main() -> Result<()> {
         }
         Cmd::Tts {
             episode,
-            chunk,
+            clip,
             force,
         } => {
             let ep = load(&episode)?;
-            videoeditor_voice::run(&ep, chunk.as_deref(), force)?;
+            videoeditor_voice::run(&ep, clip.as_deref(), force)?;
         }
         Cmd::Render { episode, scene } => {
             let ep = load(&episode)?;

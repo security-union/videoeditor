@@ -1,4 +1,4 @@
-//! ElevenLabs voice I/O: text-to-speech (one MP3 per `[CHUNK:]`, name-keyed,
+//! ElevenLabs voice I/O: text-to-speech (one MP3 per `[CLIP:]`, name-keyed,
 //! plus a `clips.json` manifest with probed durations) and Scribe
 //! speech-to-text for reference-video transcription.
 
@@ -16,15 +16,15 @@ pub fn api_key() -> Result<String> {
         .context("set ELEVENLABS_API_KEY (your ElevenLabs API key)")
 }
 
-/// Generate narration clips for every `[CHUNK:]` (skips existing files unless
+/// Generate narration clips for every `[CLIP:]` (skips existing files unless
 /// `force`) and write the `audio/clips.json` manifest.
-pub fn run(ep: &Episode, only_chunk: Option<&str>, force: bool) -> Result<()> {
+pub fn run(ep: &Episode, only_clip: Option<&str>, force: bool) -> Result<()> {
     let clips_dir = ep.root.join("audio/clips");
     fs::create_dir_all(&clips_dir)?;
 
-    let has_narration = ep.scenes.iter().any(|s| !s.chunks.is_empty());
+    let has_narration = ep.scenes.iter().any(|s| !s.clips.is_empty());
     if !has_narration {
-        println!("tts: no chunks in script, nothing to do");
+        println!("tts: no clips in script, nothing to do");
         return Ok(());
     }
 
@@ -37,21 +37,21 @@ pub fn run(ep: &Episode, only_chunk: Option<&str>, force: bool) -> Result<()> {
     let mut manifest: Vec<ClipInfo> = Vec::new();
 
     for scene in &ep.scenes {
-        for chunk in &scene.chunks {
-            let id = format!("{}__{}", scene.name, chunk.name);
+        for clip in &scene.clips {
+            let id = format!("{}__{}", scene.name, clip.name);
             let path = clips_dir.join(format!("{id}.mp3"));
-            let selected = only_chunk.is_none_or(|c| c == id || c == chunk.name);
+            let selected = only_clip.is_none_or(|c| c == id || c == clip.name);
             if selected && (force || !path.exists()) {
-                if chunk.text.is_empty() {
-                    bail!("chunk {id} has no narration text");
+                if clip.text.is_empty() {
+                    bail!("clip {id} has no narration text");
                 }
-                println!("tts: {id} ({} chars)", chunk.text.len());
-                synth(&key, voice, &ep.meta, &chunk.text, &path)?;
+                println!("tts: {id} ({} chars)", clip.text.len());
+                synth(&key, voice, &ep.meta, &clip.text, &path)?;
             }
             if path.exists() {
                 manifest.push(ClipInfo {
                     scene: scene.name.clone(),
-                    chunk: chunk.name.clone(),
+                    clip: clip.name.clone(),
                     file: format!("audio/clips/{id}.mp3"),
                     duration: videoeditor_media::ffprobe_duration(&path)?,
                 });

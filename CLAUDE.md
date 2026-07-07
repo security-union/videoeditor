@@ -8,9 +8,9 @@ vertical video out via headless Chrome + ffmpeg + ElevenLabs).
 - `crates/videoeditor` — CLI + scene orchestration; embeds `templates/` and
   `formats/` (extracted to `~/.cache/videoeditor/<version>/` at runtime;
   `VIDEOEDITOR_ROOT` overrides).
-- `crates/videoeditor-timeline` — script.md parser → `Episode`/`Scene`/`Chunk`.
+- `crates/videoeditor-timeline` — script.md parser → `Episode`/`Scene`/`Clip`.
 - `crates/videoeditor-chrome` — CDP driver (long-lived headless Chrome; NEVER
-  single-shot `--screenshot`, it hangs on macOS).
+  single-clip `--screenclip`, it hangs on macOS).
 - `crates/videoeditor-media` — all ffmpeg/ffprobe invocations + assembly.
 - `crates/videoeditor-voice` — ElevenLabs TTS/STT (`ELEVENLABS_API_KEY`).
 - `examples/hello-bench` — smallest end-to-end episode; keep it rendering.

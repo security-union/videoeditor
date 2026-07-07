@@ -5,3 +5,6 @@
 *.jpeg filter=lfs diff=lfs merge=lfs -text
 *.webp filter=lfs diff=lfs merge=lfs -text
 *.gif filter=lfs diff=lfs merge=lfs -text
+
+# README demo strip stays plain git (GitHub won't render LFS images)
+docs/*.jpg -filter -diff -merge text

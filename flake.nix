@@ -43,8 +43,13 @@
                   \( -name "Google Chrome for Testing" -o -name "Chromium" \) | head -1)"
                 test -n "$chromeBin" || { echo "no chromium in playwright bundle"; exit 1; }
               ''}
+              # Ship templates/formats as a store path instead of relying on
+              # the first-run cache extraction — fully pinned, never stale.
+              mkdir -p $out/share/videoeditor
+              cp -R crates/videoeditor/templates crates/videoeditor/formats $out/share/videoeditor/
               wrapProgram $out/bin/videoeditor \
-                --prefix PATH : ${lib.makeBinPath runtimeDeps} ${lib.optionalString pkgs.stdenv.isDarwin ''\
+                --prefix PATH : ${lib.makeBinPath runtimeDeps} \
+                --set-default VIDEOEDITOR_ROOT $out/share/videoeditor ${lib.optionalString pkgs.stdenv.isDarwin ''\
                 --set-default CHROME_BIN "$chromeBin"''}
             '';
             meta = {
