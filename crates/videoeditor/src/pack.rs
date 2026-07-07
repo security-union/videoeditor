@@ -78,14 +78,34 @@ A template is a PURE FUNCTION of `(SCENE.d, SCENE.t)`:
 
 ## The runtime you build on (`_lib/scene.js`, vendored here)
 
-- `applyPop(el, atMs, t)` — meme-style overshoot pop-in at `atMs`.
-- `popAt(atMs, t)` → `{visible, scale, opacity}` when you need the raw curve.
+COMPOSE THESE PROVEN BLOCKS before writing custom curves — they are pure
+functions of t, tuned on real episodes:
+
+- `applyPop(el, atMs, t)` / `popAt` — meme overshoot pop-in (THE default).
+- `applyEnter(el, atMs, t, {from:'up'|'down'|'left'|'right', dur, dist})` —
+  fade + slide-in for text blocks.
+- `applySlam(el, atMs, t, {from, rot})` — stamp slams huge→rest (dunk move).
+- `shakeAt(atMs, t, {amp, cycles, dur})` — decaying wobble after a landing;
+  returns `{x, rot}` offsets to compose into a transform.
+- `pulse(t, {period, amp})` — looping attention scale; ONE per scene, max.
+- `applyCount(el, atMs, t, {to, dur, decimals, prefix, suffix})` — number
+  counts up to its value (the screen holds the digits).
+- `splitWords(el, "lines|split by pipes")` once in setup, then
+  `popWords(el, atMs, t, {wordMs})` — word-by-word benchmark-text pop.
+- `typeText(el, full, atMs, t, {cps})` — plain-text typewriter with cursor.
+- `kenBurns(t, durMs, {zoom, driftX, driftY})` — slow push-in transform
+  string; keeps static panels alive.
+- `prog(t, atMs, durMs, ease.outBack)` + `ease.{linear,outCubic,inOutSine,outBack}`
+  — clamped eased progress for anything custom.
 - `flicker(t, seed)` — deterministic noise in [-1, 1] (layered sines).
 - `_lib/meme.css` — `.meme-text` (Impact, white, black outline).
 - `_vendor/highlight.min.js` + theme CSS — syntax highlighting for code.
 - Cue convention: expose every timed element as a `[DATA:]` key ending in
   `_at` (document ms vs s in a comment) so timing is recomputed from measured
   narration, never hardcoded.
+
+The built-in `stat-card.html` is the reference composition — enter, countUp,
+shake, pulse, slam, and kenBurns working together in ~30 lines of render code.
 
 ## Your working loop with the human
 

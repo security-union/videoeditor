@@ -1,0 +1,96 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="_lib/meme.css">
+<script type="application/json" id="template-info">
+{
+  "description": "one big number told well: headline enters, the stat counts up and lands with a shake, the verdict slams in — built entirely from the _lib animation blocks",
+  "keys": {
+    "title": "headline text",
+    "title_at": "headline enter (ms)",
+    "value": "the number to count up to",
+    "value_at": "count start (ms)",
+    "value_dur": "count duration (ms, default 800)",
+    "prefix / suffix": "around the number, e.g. suffix='ms'",
+    "decimals": "decimal places (default 0)",
+    "verdict": "the slam line under the number",
+    "verdict_at": "slam time (ms)"
+  },
+  "demo": {
+    "title": "TIME TO FIRST VIDEO",
+    "value": 26.5, "decimals": 1, "suffix": "s",
+    "value_at": 700, "value_dur": 900,
+    "verdict": "markdown in. video out.",
+    "verdict_at": 1900,
+    "duration": 3
+  }
+}
+</script>
+<style>
+  .stage {
+    width: 100vw; height: 100vh; background: radial-gradient(circle at 50% 30%, #151b2c 0%, #05070d 75%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 42px; overflow: hidden;
+  }
+  .inner { display: flex; flex-direction: column; align-items: center; gap: 42px; }
+  .title { font-size: 72px; color: #9aa5b1; letter-spacing: 0.04em; }
+  .value {
+    font-size: 230px; font-weight: 800;
+    font-family: 'Menlo', 'SF Mono', monospace;
+    color: #7ee787; text-shadow: 0 8px 40px rgba(126, 231, 135, 0.35);
+  }
+  .verdict { font-size: 84px; }
+</style>
+</head>
+<body>
+<div class="stage"><div class="inner" id="inner">
+  <div class="title meme-text" id="titleEl"></div>
+  <div class="value" id="valueEl"></div>
+  <div class="verdict meme-text" id="verdictEl"></div>
+</div></div>
+<script src="_lib/scene.js"></script>
+<script>
+  window.setupScene = (d) => {
+    titleEl.textContent = d.title || '';
+    verdictEl.textContent = d.verdict || '';
+  };
+
+  window.renderScene = (t) => {
+    const d = SCENE.d;
+    const valueAt = d.value_at ?? 600;
+    const valueDur = d.value_dur ?? 800;
+
+    // slow push-in keeps the card alive between beats
+    inner.style.transform = kenBurns(t, SCENE.d.duration * 1000, { zoom: 1.05 });
+
+    applyEnter(titleEl, d.title_at ?? 150, t, { from: 'up' });
+
+    applyCount(valueEl, valueAt, t, {
+      to: d.value ?? 0,
+      dur: valueDur,
+      decimals: d.decimals ?? 0,
+      prefix: d.prefix ?? '',
+      suffix: d.suffix ?? '',
+    });
+    // the landed number gets a settling shake, then a gentle pulse
+    const shake = shakeAt(valueAt + valueDur, t, { amp: 7 });
+    const scale = t > valueAt + valueDur + 500 ? pulse(t, { amp: 0.02 }) : 1;
+    valueEl.style.transform = `translate(${shake.x}px, 0) rotate(${shake.rot}deg) scale(${scale})`;
+
+    applySlam(verdictEl, d.verdict_at ?? 1800, t);
+  };
+
+  window.sceneWarnings = () => {
+    const w = [];
+    for (const el of [titleEl, valueEl, verdictEl]) {
+      const r = el.getBoundingClientRect();
+      if (r.width && (r.right > window.innerWidth + 1 || r.left < -1)) {
+        w.push(`"${el.id}" extends past the frame edge — shorten the text`);
+      }
+    }
+    return w;
+  };
+</script>
+</body>
+</html>

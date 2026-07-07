@@ -188,10 +188,15 @@ paths already inlined as data: URIs, plus `codeText`, `duration`, `width`,
 | `title-card` | X-vs-Y hook: logos, VS, flame, popping title | `left`, `right`, `left_label`, `right_label`, `title`, `*_at` (ms) |
 | `code-meme` | top: highlighted code, bottom: meme + popping benchmark | `code`, `lang`, `code_size` (px), `full` (code takes the whole frame), `meme`, `badge`, `label`, `pointer`, `pointer_from/to` (s), `bench` (lines split by `\|`), `bench_at` (s), `typing` |
 | `duel-table` | two-column concept duel (X is for…, Y is for…) | `title`, `left/right(+_label)`, `rows="a:b\|…"`, `row_pops="l:r,…"` (s) |
+| `stat-card` | one big number: headline enters, stat counts up + lands, verdict slams | `title`, `value`, `decimals`, `prefix/suffix`, `verdict`, `*_at` (ms) |
 | `scoreboard` | final ranking, winner green / loser red | `title`, `rows="name value\|…"` |
 | `video-clip` | not HTML — ffmpeg passthrough of `src` (trim/scale/native audio) | `src`, `seek`, `audio`, `crop_top`, `caption` |
 
 Add a template = drop an HTML file in `templates/scenes/`. Zero engine changes.
+Templates compose the **animation building blocks** in `_lib/scene.js` — pop,
+enter, slam, shake, pulse, count-up, word-pop, typewriter, Ken Burns, easing —
+all pure functions of t, tuned on real episodes (`stat-card` is the reference
+composition). Every pack vendors this library at `pack init`.
 
 **Browsing the repertoire**: `videoeditor templates` lists every scene
 template visible from where you stand (episode-local, packs, built-ins) with
