@@ -151,6 +151,27 @@
   // core-grid state: cells appear at grid_at, then light up one by one
   let gridCells = null, gridAt = 0, gridLit = 0;
 
+  // Self-diagnostics: the engine seeks to worst-case t (end of scene, max
+  // Ken Burns zoom) and prints each returned string as a ⚠ warning. The
+  // tilted card intentionally exceeds the frame — what must NOT leave the
+  // frame is the code text itself. A Range around the glyphs gives their
+  // true transformed bounding box.
+  window.sceneWarnings = () => {
+    const range = document.createRange();
+    range.selectNodeContents(document.getElementById('code'));
+    const r = range.getBoundingClientRect();
+    const w = [];
+    if (r.right > window.innerWidth + 1) {
+      w.push('code is clipped at the right frame edge (text reaches ' +
+        Math.round(r.right) + 'px, frame is ' + window.innerWidth +
+        'px) — shorten lines or lower code_size=');
+    }
+    if (r.left < -1) {
+      w.push('code is clipped at the left frame edge — check card layout');
+    }
+    return w;
+  };
+
   window.setupScene = (d) => {
     // full=true: code showcase — the 3D card takes the whole frame, no meme
     if (d.full) {

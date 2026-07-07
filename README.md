@@ -35,6 +35,9 @@ curl -fsSL https://install.determinate.systems/nix | sh -s -- install
 nix profile install github:security-union/videoeditor   # install the CLI
 # …or try it without installing:
 nix run github:security-union/videoeditor -- --help
+
+# working from a local clone? build THAT tree instead of fetching GitHub:
+nix build .#videoeditor && ./result/bin/videoeditor --help
 ```
 
 The nix-built binary is wrapped so **every** runtime dependency is pinned —
@@ -123,7 +126,7 @@ the human.
 ```
 script.md ──parse──► timeline plan
    │
-   ├─ videoeditor tts       [CLIP:] → ElevenLabs → audio/clips/<scene>__<clip>.mp3 + clips.json
+   ├─ videoeditor tts       [CLIP:] → ElevenLabs → audio/clips/<scene>__<clip>.mp3 + audio/clips.json
    ├─ videoeditor render    [SCENE:] → Chrome frames → ffmpeg → build/scenes/NN_name.mp4
    └─ videoeditor assemble  concat + narration@offsets + clip audio + music → build/final.mp4
 ```
@@ -183,7 +186,7 @@ paths already inlined as data: URIs, plus `codeText`, `duration`, `width`,
 | Template | Purpose | Data keys |
 |----------|---------|-----------|
 | `title-card` | X-vs-Y hook: logos, VS, flame, popping title | `left`, `right`, `left_label`, `right_label`, `title`, `*_at` (ms) |
-| `code-meme` | top: highlighted code, bottom: meme + popping benchmark | `code`, `lang`, `meme`, `badge`, `label`, `pointer`, `pointer_from/to` (s), `bench` (lines split by `\|`), `bench_at` (s), `typing` |
+| `code-meme` | top: highlighted code, bottom: meme + popping benchmark | `code`, `lang`, `code_size` (px), `full` (code takes the whole frame), `meme`, `badge`, `label`, `pointer`, `pointer_from/to` (s), `bench` (lines split by `\|`), `bench_at` (s), `typing` |
 | `duel-table` | two-column concept duel (X is for…, Y is for…) | `title`, `left/right(+_label)`, `rows="a:b\|…"`, `row_pops="l:r,…"` (s) |
 | `scoreboard` | final ranking, winner green / loser red | `title`, `rows="name value\|…"` |
 | `video-clip` | not HTML — ffmpeg passthrough of `src` (trim/scale/native audio) | `src`, `seek`, `audio`, `crop_top`, `caption` |
@@ -234,8 +237,10 @@ renders it, reads the frames, and iterates with you.
 ## Formats (`formats/<name>/`)
 
 A format is a narrative spine over the same machinery: `spec.md` (the rules) +
-`skeleton.md` (what `videoeditor new` copies). First format: **meme-benchmark**
-— the viral "X vs Y with receipts" ~20-second shape.
+`skeleton.md` + starter assets (what `videoeditor new` copies). Built-ins:
+**meme-benchmark** — the viral "X vs Y with receipts" ~20-second shape — and
+**blank** (`videoeditor new my-video --format blank`) for ideas that aren't a
+duel: announcement, tip, story.
 
 Production craft — how to make these videos actually good (real benchmark
 receipts, congruence between audio and screen, pacing, review ritual) — lives

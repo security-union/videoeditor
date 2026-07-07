@@ -150,6 +150,24 @@ impl Chrome {
         Ok(())
     }
 
+    /// Run the template's self-diagnostics, if it defines any: templates may
+    /// expose `window.sceneWarnings()` returning an array of strings (e.g.
+    /// "code clipped at the frame edge"). Seek to the time you want checked
+    /// first — layout is a function of t, so worst-case is usually the end
+    /// of the scene (Ken Burns push-in at max zoom).
+    pub fn scene_warnings(&mut self) -> Result<Vec<String>> {
+        let warnings =
+            self.eval("typeof window.sceneWarnings === 'function' ? window.sceneWarnings() : []")?;
+        Ok(warnings
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default())
+    }
+
     fn wait_ready(&mut self, expr: &str, what: &str) -> Result<()> {
         let deadline = Instant::now() + Duration::from_secs(30);
         loop {

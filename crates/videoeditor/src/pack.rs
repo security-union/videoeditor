@@ -93,6 +93,14 @@ A template is a PURE FUNCTION of `(SCENE.d, SCENE.t)`:
 6. Iterate 2–5 until the frames look right, then show the human the frames
    (not the code) and ask for art direction, not implementation.
 
+## Self-diagnostics (do this in every template)
+
+Define `window.sceneWarnings()` returning an array of strings; the engine
+calls it after setup and prints each as a `⚠` during render. Check whatever
+can silently go wrong in YOUR layout — text overflowing a clipped container
+is the classic (compare `scrollWidth`/`scrollHeight` against the container).
+See the built-in `code-meme.html` for a reference implementation.
+
 ## Design rules that keep shorts watchable
 
 - One moving element per beat — sequential motion reads clean.
@@ -156,9 +164,14 @@ pub fn init(dir: &Path) -> Result<()> {
     fs::write(scenes.join("my-scene.html"), EXAMPLE_TEMPLATE)?;
     fs::write(dir.join("README.md"), PACK_README)?;
     fs::write(dir.join("CLAUDE.md"), PACK_CLAUDE_MD)?;
+    let usage = if dir.join("script.md").exists() {
+        "this is an episode dir — its templates/ is resolution layer 1, no `packs:` line needed"
+    } else {
+        "declare it in an episode with `packs: <path-to-pack>` frontmatter"
+    };
     println!(
         "pack: scaffolded {} (example template: my-scene)\n\
-         pack: declare it in an episode with `packs: <path-to-pack>` frontmatter\n\
+         pack: {usage}\n\
          pack: don't hand-write animation — open Claude Code here; CLAUDE.md \
          makes it this pack's template engineer",
         dir.display()

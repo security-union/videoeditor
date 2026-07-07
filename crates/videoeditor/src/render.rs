@@ -73,6 +73,14 @@ fn render_web_scene(ep: &Episode, scene: &Scene, chrome: &mut Chrome, out: &Path
     chrome.navigate(&format!("file://{}", template.display()))?;
     chrome.init_scene(&serde_json::to_string(&Value::Object(data))?)?;
 
+    // template self-diagnostics at worst-case t (end of scene: Ken Burns
+    // push-in is at max zoom) — catches silent clipping the way the
+    // narration fit-check catches overlaps
+    chrome.seek(scene.duration * 1000.0)?;
+    for w in chrome.scene_warnings()? {
+        println!("  ⚠ {}: {w}", scene.name);
+    }
+
     for i in 0..total_frames {
         let t_ms = i as f64 / ep.meta.fps as f64 * 1000.0;
         chrome.seek(t_ms)?;
