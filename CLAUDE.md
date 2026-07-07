@@ -10,7 +10,7 @@ vertical video out via headless Chrome + ffmpeg + ElevenLabs).
   `VIDEOEDITOR_ROOT` overrides).
 - `crates/videoeditor-timeline` — script.md parser → `Episode`/`Scene`/`Clip`.
 - `crates/videoeditor-chrome` — CDP driver (long-lived headless Chrome; NEVER
-  single-clip `--screenclip`, it hangs on macOS).
+  single-shot `--screenshot`, it hangs on macOS).
 - `crates/videoeditor-media` — all ffmpeg/ffprobe invocations + assembly.
 - `crates/videoeditor-voice` — ElevenLabs TTS/STT (`ELEVENLABS_API_KEY`).
 - `examples/hello-bench` — smallest end-to-end episode; keep it rendering.
@@ -33,6 +33,10 @@ vertical video out via headless Chrome + ffmpeg + ElevenLabs).
 
 - Scene templates are PURE functions of (data, t) — no CSS animations, no
   timers, no network. Everything derives from `SCENE.d` and `SCENE.t`.
+- Templates resolve in layers: episode dir → frontmatter `packs:` →
+  `$VIDEOEDITOR_PACK_PATH` → built-ins (`videoeditor pack list <ep>` shows
+  provenance). Users never hand-roll templates — `pack init` scaffolds a
+  pack with its own CLAUDE.md; author templates WITH the user per that file.
 - Releases go through release-plz (PRs to main; never bump versions by hand).
 - Never commit media renders or API keys. Committed images go through git-lfs.
 - Production craft for episode content lives in PRODUCTION.md.

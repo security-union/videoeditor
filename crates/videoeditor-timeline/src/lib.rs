@@ -31,8 +31,13 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, Serialize)]
 pub struct Episode {
     pub root: PathBuf,
-    /// Root directory holding `templates/` and `formats/` (resolved by the CLI).
+    /// Root directory holding the built-in `templates/` and `formats/`
+    /// (resolved by the CLI).
     pub assets_root: PathBuf,
+    /// Template resolution layers, most specific first: the episode dir
+    /// itself → frontmatter `packs:` → `$VIDEOEDITOR_PACK_PATH` entries →
+    /// the built-ins. See [`Episode::resolve_template`].
+    pub template_roots: Vec<PathBuf>,
     pub meta: Meta,
     pub scenes: Vec<Scene>,
     pub total_duration: f64,
@@ -44,6 +49,9 @@ pub struct Meta {
     pub fps: u32,
     pub width: u32,
     pub height: u32,
+    /// Template packs this episode uses (frontmatter `packs:`,
+    /// comma-separated paths relative to the episode dir).
+    pub packs: Vec<String>,
     pub voice_id: Option<String>,
     pub model_id: String,
     /// ElevenLabs voice_settings — low stability reads livelier, less robotic.
@@ -160,6 +168,67 @@ impl Episode {
         }
         warnings
     }
+
+    /// Resolve a scene template name to an HTML file by walking
+    /// `template_roots` in order — first match wins. Every root is shaped
+    /// like the engine root (`<root>/templates/scenes/<name>.html`), so a
+    /// pack is self-contained and an episode can override any built-in by
+    /// shipping a file of the same name.
+    pub fn resolve_template(&self, name: &str) -> Result<PathBuf> {
+        resolve_in_roots(&self.template_roots, name)
+    }
+}
+
+/// First `<root>/templates/scenes/<name>.html` that exists, roots in order.
+pub fn resolve_in_roots(roots: &[PathBuf], name: &str) -> Result<PathBuf> {
+    let rel = format!("templates/scenes/{name}.html");
+    for root in roots {
+        let candidate = root.join(&rel);
+        if candidate.exists() {
+            return Ok(candidate);
+        }
+    }
+    bail!(
+        "template `{name}` not found; searched (in order):\n{}",
+        roots
+            .iter()
+            .map(|r| format!("  {}", r.join(&rel).display()))
+            .collect::<Vec<_>>()
+            .join("\n")
+    )
+}
+
+/// Compute the template resolution layers for an episode.
+/// Order: episode dir → declared packs (relative to the episode dir; a
+/// missing declared pack is an error, not a silent skip) → colon-separated
+/// `pack_path` entries (from `$VIDEOEDITOR_PACK_PATH`) → the built-in root.
+pub fn template_roots(
+    episode_root: &Path,
+    packs: &[String],
+    pack_path: Option<&str>,
+    assets_root: &Path,
+) -> Result<Vec<PathBuf>> {
+    let mut roots = vec![episode_root.to_path_buf()];
+    for pack in packs {
+        let dir = if Path::new(pack).is_absolute() {
+            PathBuf::from(pack)
+        } else {
+            episode_root.join(pack)
+        };
+        let dir = dir
+            .canonicalize()
+            .with_context(|| format!("pack `{pack}` (declared in frontmatter) not found"))?;
+        roots.push(dir);
+    }
+    for entry in pack_path
+        .unwrap_or_default()
+        .split(':')
+        .filter(|s| !s.is_empty())
+    {
+        roots.push(PathBuf::from(entry));
+    }
+    roots.push(assets_root.to_path_buf());
+    Ok(roots)
 }
 
 pub fn load(episode_dir: &Path, assets_root: &Path) -> Result<Episode> {
@@ -180,8 +249,12 @@ pub fn load(episode_dir: &Path, assets_root: &Path) -> Result<Episode> {
         cursor += s.duration;
     }
 
+    let pack_path = std::env::var("VIDEOEDITOR_PACK_PATH").ok();
+    let template_roots = template_roots(&root, &meta.packs, pack_path.as_deref(), assets_root)?;
+
     Ok(Episode {
         assets_root: assets_root.to_path_buf(),
+        template_roots,
         root,
         meta,
         total_duration: cursor,
@@ -211,6 +284,7 @@ fn parse_meta(front: &str) -> Result<Meta> {
     let mut fps = 30u32;
     let mut width = 1080u32;
     let mut height = 1920u32;
+    let mut packs = Vec::new();
     let mut voice_id = None;
     let mut model_id = "eleven_multilingual_v2".to_string();
     let mut voice_stability = 0.4;
@@ -229,6 +303,13 @@ fn parse_meta(front: &str) -> Result<Meta> {
             "fps" => fps = v.parse().context("fps")?,
             "width" => width = v.parse().context("width")?,
             "height" => height = v.parse().context("height")?,
+            "packs" => {
+                packs = v
+                    .split(',')
+                    .map(|p| p.trim().to_string())
+                    .filter(|p| !p.is_empty())
+                    .collect()
+            }
             "voice_id" => voice_id = Some(v),
             "model_id" => model_id = v,
             "voice_stability" => voice_stability = v.parse().context("voice_stability")?,
@@ -244,6 +325,7 @@ fn parse_meta(front: &str) -> Result<Meta> {
         fps,
         width,
         height,
+        packs,
         voice_id,
         model_id,
         voice_stability,
@@ -517,6 +599,7 @@ Second line joins the same clip.
         let ep = Episode {
             root: PathBuf::new(),
             assets_root: PathBuf::new(),
+            template_roots: vec![],
             meta: parse_meta(&split_frontmatter(SCRIPT).unwrap().0).unwrap(),
             scenes,
             total_duration: cursor, // 10.7
@@ -547,6 +630,59 @@ Second line joins the same clip.
     #[test]
     fn rejects_script_without_scenes() {
         assert!(parse_scenes("just prose, no markers").is_err());
+    }
+
+    #[test]
+    fn parses_packs_from_frontmatter() {
+        let meta = parse_meta("packs: ../creator-a, /abs/b\n").unwrap();
+        assert_eq!(meta.packs, vec!["../creator-a", "/abs/b"]);
+    }
+
+    #[test]
+    fn template_resolution_layers_most_specific_first() {
+        let base = std::env::temp_dir().join(format!("ve-packs-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        let mk = |root: &str, name: &str| {
+            let dir = base.join(root).join("templates/scenes");
+            fs::create_dir_all(&dir).unwrap();
+            fs::write(dir.join(format!("{name}.html")), "<html></html>").unwrap();
+        };
+        // built-ins have `stock` and `both`; the pack overrides `both` and adds `mine`
+        mk("engine", "stock");
+        mk("engine", "both");
+        mk("pack-a", "both");
+        mk("pack-a", "mine");
+        fs::create_dir_all(base.join("ep")).unwrap();
+
+        let roots = template_roots(
+            &base.join("ep"),
+            &["../pack-a".to_string()],
+            None,
+            &base.join("engine"),
+        )
+        .unwrap();
+        assert_eq!(roots.len(), 3); // episode, pack-a, engine
+
+        let hit = |name: &str| resolve_in_roots(&roots, name).unwrap();
+        assert!(hit("stock").starts_with(base.join("engine")));
+        assert!(hit("mine").ends_with("pack-a/templates/scenes/mine.html"));
+        // pack overrides the built-in of the same name
+        assert!(hit("both").ends_with("pack-a/templates/scenes/both.html"));
+        // unknown template error lists every searched location
+        let err = resolve_in_roots(&roots, "nope").unwrap_err().to_string();
+        assert!(err.contains("pack-a") && err.contains("engine"));
+
+        // a declared pack that doesn't exist is an error, not a silent skip
+        assert!(
+            template_roots(
+                &base.join("ep"),
+                &["../missing".into()],
+                None,
+                &base.join("engine")
+            )
+            .is_err()
+        );
+        let _ = fs::remove_dir_all(&base);
     }
 
     #[test]

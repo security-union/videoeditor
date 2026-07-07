@@ -1,5 +1,6 @@
 mod analyze;
 mod assets;
+mod pack;
 mod render;
 
 use anyhow::Result;
@@ -58,6 +59,11 @@ enum Cmd {
         #[arg(long, default_value = "meme-benchmark")]
         format: String,
     },
+    /// Template packs: bring-your-own scene templates (see `pack init --help`)
+    Pack {
+        #[command(subcommand)]
+        cmd: PackCmd,
+    },
     /// Research helper: fetch a URL through YOUR running Chrome (logged-in
     /// sessions bypass bot walls) and print the page text
     Grab {
@@ -72,6 +78,15 @@ enum Cmd {
         #[arg(long)]
         selector: Option<String>,
     },
+}
+
+#[derive(Subcommand)]
+enum PackCmd {
+    /// Scaffold a self-contained template pack (vendors the scene runtime)
+    Init { dir: PathBuf },
+    /// Show an episode's template resolution: layers + where each scene's
+    /// template comes from
+    List { episode: PathBuf },
 }
 
 fn load(episode: &Path) -> Result<videoeditor_timeline::Episode> {
@@ -117,6 +132,10 @@ fn main() -> Result<()> {
         Cmd::New { dir, format } => {
             assets::scaffold(&dir, &format)?;
         }
+        Cmd::Pack { cmd } => match cmd {
+            PackCmd::Init { dir } => pack::init(&dir)?,
+            PackCmd::List { episode } => pack::list(&load(&episode)?)?,
+        },
         Cmd::Grab {
             url,
             port,

@@ -176,7 +176,7 @@ Narration text until the next marker. `at` = seconds from scene start
 
 A template is one HTML file. Contract: the renderer loads the page, injects the
 merged `[DATA:]` map via CDP, then per frame calls `__sceneSeek(t)` and
-screenclips. Everything visible must derive from `SCENE.d` (data keys, asset
+screenshots. Everything visible must derive from `SCENE.d` (data keys, asset
 paths already inlined as data: URIs, plus `codeText`, `duration`, `width`,
 `height`) and `SCENE.t`. No CSS animations, no timers — pure state.
 
@@ -189,6 +189,44 @@ paths already inlined as data: URIs, plus `codeText`, `duration`, `width`,
 | `video-clip` | not HTML — ffmpeg passthrough of `src` (trim/scale/native audio) | `src`, `seek`, `audio`, `crop_top`, `caption` |
 
 Add a template = drop an HTML file in `templates/scenes/`. Zero engine changes.
+
+## Template packs — your look, outside the engine
+
+The built-ins are a starting point, not your brand. A **pack** is a
+self-contained directory of scene templates a creator owns and versions
+independently (a git repo of its own, shared between channels, whatever):
+
+```bash
+videoeditor pack init creator-a     # scaffold: example template + vendored scene runtime
+```
+
+```markdown
+---
+title: My Episode
+packs: ../creator-a, ../shared-lower-thirds   # comma-separated, episode-relative
+---
+
+[SCENE: intro | template=my-scene duration=2.5]
+```
+
+Resolution is layered, most specific wins — so creator A and creator B render
+the same `script.md` grammar through entirely different visual identities:
+
+1. the episode's own `templates/scenes/` (one-off scenes)
+2. frontmatter `packs:` in order
+3. `$VIDEOEDITOR_PACK_PATH` (colon-separated, machine-level)
+4. the engine built-ins
+
+A pack file named like a built-in **overrides** it. `videoeditor pack list
+<episode>` prints the layers and exactly which file every scene resolves to;
+renders log the source when a template comes from a pack.
+
+**Don't hand-write frame-by-frame animation.** `pack init` drops a `CLAUDE.md`
+into the pack that turns Claude Code into that pack's template engineer — it
+knows the `(data, t)` contract, the runtime helpers, and the render-one-scene →
+inspect-frames QA loop. You describe the look ("neon terminal, CRT flicker,
+title slams in when the voice says the name"); Claude writes the template,
+renders it, reads the frames, and iterates with you.
 
 ## Formats (`formats/<name>/`)
 

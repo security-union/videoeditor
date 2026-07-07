@@ -6,7 +6,7 @@
 //!
 //! `video-clip` scenes bypass Chrome: ffmpeg trims/scales the source clip.
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
 use serde_json::{Map, Value};
@@ -58,12 +58,9 @@ pub fn run(ep: &Episode, only_scene: Option<&str>) -> Result<()> {
 }
 
 fn render_web_scene(ep: &Episode, scene: &Scene, chrome: &mut Chrome, out: &Path) -> Result<()> {
-    let template = ep
-        .assets_root
-        .join("templates/scenes")
-        .join(format!("{}.html", scene.template));
-    if !template.exists() {
-        bail!("template not found: {}", template.display());
+    let template = ep.resolve_template(&scene.template)?;
+    if !template.starts_with(&ep.assets_root) {
+        println!("  template: {}", template.display());
     }
 
     let data = resolve_data(ep, scene)?;

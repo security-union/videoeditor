@@ -24,14 +24,19 @@ pub struct Chrome {
     child: Child,
     ws: WebSocket<MaybeTlsStream<TcpStream>>,
     next_id: u64,
+    profile: std::path::PathBuf,
 }
 
 impl Chrome {
     pub fn launch(chrome_bin: &str, width: u32, height: u32) -> Result<Self> {
-        let profile = std::env::temp_dir().join("videoeditor-chrome-profile");
+        // Fresh profile per launch: a shared dir accumulates state, races
+        // concurrent renders, and a leaked Chrome's SingletonLock poisons
+        // every later run. Removed again on Drop.
+        let profile =
+            std::env::temp_dir().join(format!("videoeditor-chrome-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&profile);
         fs::create_dir_all(&profile)?;
         let port_file = profile.join("DevToolsActivePort");
-        let _ = fs::remove_file(&port_file);
 
         let child = Command::new(chrome_bin)
             .args([
@@ -86,6 +91,7 @@ impl Chrome {
             child,
             ws,
             next_id: 1,
+            profile,
         };
 
         chrome.cmd(
@@ -186,6 +192,7 @@ impl Drop for Chrome {
         let _ = self.ws.close(None);
         let _ = self.child.kill();
         let _ = self.child.wait();
+        let _ = fs::remove_dir_all(&self.profile);
     }
 }
 

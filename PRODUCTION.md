@@ -80,7 +80,7 @@ trade-offs, not fake wins) → BAD (disgusted meme + dunk) → SCOREBOARD (held
 Run two independent reviews of script + code + bench before rendering:
 one **methodology skeptic** (compilability, false claims, roast-magnets —
 fix them, keep deliberate Cunningham bait) and one **shareability critic**
-(cleverness, what's on screen for muted viewers, the screencliptable frame).
+(cleverness, what's on screen for muted viewers, the screenshottable frame).
 Synthesize; the director's word wins.
 
 ## Rule 7 — Repo hygiene
