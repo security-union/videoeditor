@@ -3,6 +3,9 @@ changelog_update = true
 git_release_enable = false
 git_tag_enable = false
 semver_check = true
+pr_branch_prefix = "release-plz-"
+pr_labels = ["release"]
+publish_timeout = "10m"
 
 # The CLI crate is the user-facing release: it gets the GitHub release + tag.
 [[package]]
@@ -11,3 +14,6 @@ git_release_enable = true
 git_tag_enable = true
 git_tag_name = "v{{ version }}"
 git_release_name = "v{{ version }}"
+
+[changelog]
+protect_breaking_commits = true
