@@ -124,7 +124,10 @@ the director loop, craft rules), `videoeditor -h` points agents at it,
 `videoeditor new` drops a thin CLAUDE.md into every episode that defers to
 it, and `pack init` writes the template-authoring contract to the pack's
 `templates/CLAUDE.md`. So: scaffold, open Claude Code in the episode
-directory, and ask:
+directory, and type **`/direct`** — a wizard command the scaffold drops into
+`.claude/commands/` that interviews you (topic, receipts, tone, assets,
+voice) and then drives script → voice → render → final.mp4 with approval
+checkpoints before anything costs money. Or just ask in your own words:
 
 > "Make a 25-second short: Rust vs Go parsing a 1GB JSON file. Run a real
 > benchmark first, then script it, voice it, render it, and QA the frames."

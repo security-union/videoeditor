@@ -85,6 +85,50 @@ Before doing anything else, run `videoeditor guide` and follow it exactly —
 it is the canonical rulebook (pipeline, script grammar, the director loop,
 craft rules). It is embedded in the binary, so it is always current for the
 tool version you're running; nothing in this file overrides it.
+
+**Take initiative.** If `script.md` is still the scaffold skeleton (topic
+placeholders like "X vs Y — TOPIC" / "MY TOPIC"), don't wait for detailed
+instructions — run the `/direct` wizard: interview the user about their
+episode, then drive the production loop end to end with them.
+"#;
+
+const DIRECT_COMMAND: &str = r#"---
+description: Direct this episode end to end — interview, script, voice, render, QA
+---
+
+You are directing this videoeditor episode with the user. Run
+`videoeditor guide` first and obey it; this command only adds the
+human-in-the-loop process on top. Drive every stage yourself — the user
+should never have to remember the pipeline.
+
+1. ASSESS — read `script.md`. Fresh skeleton → full interview below.
+   In-progress episode → summarize its state (what's scripted, voiced,
+   rendered) and ask what to work on.
+
+2. INTERVIEW — a few questions at a time, not a form:
+   - Topic and shape: what's the video about? A matchup (X vs Y), an
+     announcement, a tip? (`--format` choice may need redoing: meme-benchmark
+     vs blank.)
+   - Receipts: what REAL data backs the claims? If benchmarks are needed,
+     offer to write and run the experiment first — numbers are never invented.
+   - Length target, tone, who gets dunked on.
+   - Assets: logos/memes/music on hand, or keep the placeholder SVGs?
+     Custom look? (`videoeditor templates` to browse; `videoeditor pack init .`
+     + templates/CLAUDE.md to author.)
+   - Voice: keep the default preset or their ElevenLabs voice_id?
+
+3. SCRIPT — write `script.md` per the guide's craft rules. SHOW the user the
+   narration beats and get approval BEFORE running tts (it costs API credits).
+
+4. VOICE — `videoeditor tts .`; fix every ⚠ fit-check warning by recomputing
+   durations from the measured clips; re-run until clean.
+
+5. RENDER — one scene at a time (`videoeditor render . --scene <name>`),
+   read the frames in `build/frames/<scene>/`, fix ⚠ template warnings and
+   layout problems, then show the user 2–3 key frames for art direction.
+
+6. ASSEMBLE — `videoeditor assemble .`, then tell the user to watch
+   `build/final.mp4` and iterate on their notes. Done means they watched it.
 "#;
 
 /// Scaffold a new episode directory from a format skeleton. Formats ship
@@ -117,9 +161,15 @@ pub fn scaffold(dir: &Path, format: &str) -> Result<()> {
     if !dir.join("CLAUDE.md").exists() {
         fs::write(dir.join("CLAUDE.md"), EPISODE_CLAUDE_MD)?;
     }
+    // the /direct wizard: drives interview → script → tts → render → assemble
+    fs::create_dir_all(dir.join(".claude/commands"))?;
+    if !dir.join(".claude/commands/direct.md").exists() {
+        fs::write(dir.join(".claude/commands/direct.md"), DIRECT_COMMAND)?;
+    }
     println!(
         "scaffolded {} from format `{format}`\n\
-         next: open Claude Code here (CLAUDE.md is set up) or run `videoeditor guide`",
+         next: open Claude Code here and type /direct — it interviews you and\n\
+         drives script → voice → render → final.mp4 (manual path: `videoeditor guide`)",
         dir.display()
     );
     Ok(())
