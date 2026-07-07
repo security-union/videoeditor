@@ -52,8 +52,18 @@ enough for shorts), needed only by `tts` and `analyze` — `parse`, `new`,
 `render`, and `assemble` of already-voiced episodes run keyless.
 
 Contributors: `nix develop` (or `direnv allow` — `.envrc` is committed) drops
-you in the pinned dev shell with rustc, ffmpeg, just, and rust-analyzer;
-`just --list` shows the task recipes.
+you in the pinned dev shell with rustc, ffmpeg, just, rust-analyzer — **and a
+`videoeditor` command** that builds and runs the checkout you're in via
+`cargo run` (first call compiles; always matches your edits, never a stale
+store binary). `just --list` shows the task recipes.
+
+Just want the binary in a shell without the dev tooling?
+
+```bash
+nix shell .#videoeditor            # binary on PATH for this shell (or github:security-union/videoeditor)
+nix run . -- build my-short       # one-off invocation
+nix profile install .              # permanent install
+```
 
 The pinned browser is an ordinary Chrome for Testing binary and `$CHROME_BIN`
 points at it in the dev shell — any CDP client can reuse it. If you script
