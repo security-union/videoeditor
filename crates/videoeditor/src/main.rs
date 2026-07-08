@@ -90,6 +90,34 @@ enum Cmd {
     /// Print the embedded director's guide: production workflow, script.md
     /// grammar, template authoring — written for AI agents and humans alike
     Guide,
+    /// Generate a still image with a generative model — xAI Grok Imagine
+    /// (XAI_API_KEY; accepts reference images) or Google Imagen
+    /// (AI_STUDIO/GEMINI_API_KEY; safety-filtered, no references)
+    Image {
+        /// What to render. With --ref, describe how the referenced
+        /// subject should appear
+        prompt: String,
+        /// Output PNG path (with -n > 1: name_v1.png ... name_vN.png)
+        #[arg(short, long)]
+        out: PathBuf,
+        /// Provider to use
+        #[arg(long, value_enum, default_value_t = ImageProvider::Grok)]
+        provider: ImageProvider,
+        /// Reference image to condition on (repeatable, grok only, ≤ 7)
+        #[arg(long = "ref")]
+        refs: Vec<PathBuf>,
+        /// Number of variants (grok ≤ 10, imagen ≤ 4)
+        #[arg(short = 'n', long, default_value_t = 1)]
+        count: u8,
+        /// Aspect ratio: 1:1, 3:4, 4:3, 9:16, 16:9, 2:3, 3:2, 1:2, 2:1,
+        /// auto, ... (imagen: first five only)
+        #[arg(long, default_value = "auto")]
+        aspect: String,
+        /// Model id override (defaults: grok-imagine-image-quality /
+        /// imagen-4.0-generate-001)
+        #[arg(long)]
+        model: Option<String>,
+    },
     /// Research helper: fetch a URL through YOUR running Chrome (logged-in
     /// sessions bypass bot walls) and print the page text
     Grab {
@@ -104,6 +132,14 @@ enum Cmd {
         #[arg(long)]
         selector: Option<String>,
     },
+}
+
+#[derive(Clone, Copy, clap::ValueEnum)]
+enum ImageProvider {
+    /// xAI Grok Imagine — reference images, lenient with mascots/people
+    Grok,
+    /// Google Imagen — aspect-true, safety-filtered, no reference images
+    Imagen,
 }
 
 #[derive(Subcommand)]
@@ -195,6 +231,44 @@ fn main() -> Result<()> {
                 template.as_deref(),
                 &out,
             )?;
+        }
+        Cmd::Image {
+            prompt,
+            out,
+            provider,
+            refs,
+            count,
+            aspect,
+            model,
+        } => {
+            let req = videoeditor_genai::ImageRequest {
+                prompt,
+                model,
+                n: count,
+                aspect: aspect.parse()?,
+                reference_images: refs,
+            };
+            let images = match provider {
+                ImageProvider::Grok => videoeditor_genai::xai::generate(&req)?,
+                ImageProvider::Imagen => videoeditor_genai::google::generate(&req)?,
+            };
+            for (i, img) in images.iter().enumerate() {
+                let path = if images.len() == 1 {
+                    out.clone()
+                } else {
+                    let stem = out.file_stem().unwrap_or_default().to_string_lossy();
+                    let ext = out.extension().unwrap_or_default().to_string_lossy();
+                    out.with_file_name(format!("{stem}_v{}.{ext}", i + 1))
+                };
+                if let Some(dir) = path.parent().filter(|d| !d.as_os_str().is_empty()) {
+                    std::fs::create_dir_all(dir)?;
+                }
+                std::fs::write(&path, &img.bytes)?;
+                println!("image: wrote {}", path.display());
+                if let Some(rp) = &img.revised_prompt {
+                    println!("image:   revised prompt: {rp}");
+                }
+            }
         }
         Cmd::Grab {
             url,

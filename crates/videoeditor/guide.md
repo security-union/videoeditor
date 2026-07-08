@@ -15,6 +15,7 @@ videoeditor render <dir> [--scene name]      headless-Chrome frames → scene mp
 videoeditor assemble <dir>     concat + narration@offsets + music → build/final.mp4
 videoeditor build <dir>        tts + render + assemble
 videoeditor analyze <ref.mp4>  transcript + scene-cut timing table of a reference
+videoeditor image "prompt" -o <png>   AI still for assets/ (grok|imagen; --ref conditions on an image)
 ```
 
 Discovery: `videoeditor templates [dir]` lists every scene template visible
@@ -133,6 +134,9 @@ compose the blocks.
 ## Env
 
 - `ELEVENLABS_API_KEY` — required for `tts`/`analyze` only.
+- `XAI_API_KEY` — `image --provider grok` (the default; takes `--ref` images).
+- `AI_STUDIO` (or `GEMINI_API_KEY`) — `image --provider imagen` (safety-filtered,
+  no references; rejections say so — reroute those prompts to grok).
 - `CHROME_BIN` — override the render browser.
 - `VIDEOEDITOR_ROOT` — use a checkout's templates instead of the embedded ones.
 - `VIDEOEDITOR_PACK_PATH` — colon-separated machine-wide template packs.

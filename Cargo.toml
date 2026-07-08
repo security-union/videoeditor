@@ -21,6 +21,7 @@ tungstenite = "0.24"
 ureq = { version = "2", features = ["json"] }
 
 videoeditor-chrome = { version = "0.1.1", path = "crates/videoeditor-chrome" }
+videoeditor-genai = { version = "0.1.1", path = "crates/videoeditor-genai" }
 videoeditor-media = { version = "0.1.1", path = "crates/videoeditor-media" }
 videoeditor-timeline = { version = "0.1.1", path = "crates/videoeditor-timeline" }
 videoeditor-voice = { version = "0.1.1", path = "crates/videoeditor-voice" }
