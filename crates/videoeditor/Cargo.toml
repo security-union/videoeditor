@@ -19,6 +19,7 @@ include_dir.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 videoeditor-chrome.workspace = true
+videoeditor-genai.workspace = true
 videoeditor-media.workspace = true
 videoeditor-timeline.workspace = true
 videoeditor-voice.workspace = true

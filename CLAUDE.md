@@ -13,6 +13,9 @@ vertical video out via headless Chrome + ffmpeg + ElevenLabs).
   single-shot `--screenshot`, it hangs on macOS).
 - `crates/videoeditor-media` — all ffmpeg/ffprobe invocations + assembly.
 - `crates/videoeditor-voice` — ElevenLabs TTS/STT (`ELEVENLABS_API_KEY`).
+- `crates/videoeditor-genai` — typed image-generation clients: xAI Grok
+  Imagine (`XAI_API_KEY`, reference images) + Google Imagen (`AI_STUDIO`);
+  Veo/Grok video is the planned next tenant.
 - `examples/hello-bench` — smallest end-to-end episode; keep it rendering.
 
 ## Commands
