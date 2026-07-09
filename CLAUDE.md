@@ -17,8 +17,16 @@ vertical video out via headless Chrome + ffmpeg + ElevenLabs).
   Imagine (`XAI_API_KEY`, reference images) + Google Imagen (`AI_STUDIO`);
   Veo/Grok video is the planned next tenant.
 - `crates/videoeditor-record` — `record` subcommand: local web recorder
-  (teleprompter + MediaRecorder mic capture, tiny_http server); kept takes
-  transcode via ffmpeg into `audio/clips/` in the TTS format.
+  (tiny_http REST server); takes transcode via ffmpeg into `audio/clips/`.
+  Serves the UI from `ui/` — a COMMITTED trunk build of the next crate;
+  regenerate with `just ui` after any UI change, never edit `ui/` by hand.
+- `crates/videoeditor-record-ui` — the recorder front end: Leptos (CSR) →
+  wasm via trunk. No JS framework tooling; `nix develop` provides
+  trunk/wasm-bindgen-cli (the `wasm-bindgen` crate pin must match the CLI
+  version — bump together).
+- `e2e/` — Playwright suite for the recorder (`just e2e`): drives the real
+  binary + real Chromium with a fake mic through record → coach → keep →
+  approve. UI changes are not done until it passes.
 - `examples/hello-bench` — smallest end-to-end episode; keep it rendering.
 
 ## Commands

@@ -19,3 +19,9 @@ analysis/
 
 # videoeditor preview output
 template-previews/
+
+# trunk build output (the committed copy lives in crates/videoeditor-record/ui)
+crates/videoeditor-record-ui/dist/
+# playwright artifacts
+e2e/test-results/
+e2e/playwright-report/

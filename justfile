@@ -23,6 +23,18 @@ test:
 # everything CI runs
 ci: check test build
 
+# rebuild the recorder UI (Leptos → wasm via trunk) and refresh the
+# committed dist that videoeditor-record embeds
+ui:
+    cd crates/videoeditor-record-ui && trunk build
+    rm -rf crates/videoeditor-record/ui
+    cp -R crates/videoeditor-record-ui/dist crates/videoeditor-record/ui
+
+# recorder end-to-end suite: real binary + real Chromium (fake mic)
+e2e:
+    cargo build -p videoeditor
+    cd e2e && playwright test
+
 # generate narration clips (needs ELEVENLABS_API_KEY)
 tts episode=episode:
     {{run}} tts {{episode}}

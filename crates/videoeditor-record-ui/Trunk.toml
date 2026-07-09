@@ -1,0 +1,12 @@
+# Builds the recorder UI to static assets. Regenerate the committed dist
+# that videoeditor-record embeds with:  just ui
+[build]
+target = "index.html"
+release = true
+# stable filenames — videoeditor-record's include_bytes! table names them
+filehash = false
+
+[tools]
+# match the wasm-bindgen crate pin in Cargo.toml AND the nix devshell's
+# wasm-bindgen-cli; bump all three together
+wasm_bindgen = "0.2.121"

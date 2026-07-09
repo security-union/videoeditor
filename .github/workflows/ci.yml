@@ -32,6 +32,19 @@ jobs:
       - name: build
         run: just build
 
+  # recorder UI end-to-end: real binary, real Chromium, fake mic — the whole
+  # record → coach → keep → approve journey (see e2e/)
+  record-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: DeterminateSystems/nix-installer-action@v16
+      - uses: DeterminateSystems/magic-nix-cache-action@v9
+      - name: playwright e2e
+        run: nix develop --command just e2e
+
   # the preferred install path must stay green: sandboxed build from flake.lock
   nix:
     strategy:

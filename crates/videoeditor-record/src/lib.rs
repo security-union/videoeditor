@@ -1,7 +1,9 @@
-//! Local web recorder: `videoeditor record <episode>` serves a one-page
-//! teleprompter + mic-capture UI on localhost, and every kept take lands
-//! directly in the episode (`audio/clips/<scene>__<clip>.mp3` + manifest),
-//! ready for the normal render/assemble pipeline.
+//! Local web recorder: `videoeditor record <episode>` serves a
+//! teleprompter + mic-capture UI on localhost (a Leptos/WASM app from the
+//! `videoeditor-record-ui` crate, embedded as committed static assets),
+//! and every kept take lands directly in the episode
+//! (`audio/clips/<scene>__<clip>.mp3` + manifest), ready for the normal
+//! render/assemble pipeline.
 //!
 //! Capture happens in the browser (getUserMedia/MediaRecorder) because
 //! cross-platform native audio capture is a swamp — device pickers,
@@ -26,48 +28,30 @@ use std::fs;
 use std::path::Path;
 use videoeditor_timeline::{Clip, ClipInfo, Episode, Scene};
 
-/// The whole front end, embedded: plain ES modules, no framework, no
-/// build step — the binary stays self-contained.
-const ASSETS: &[(&str, &str, &str)] = &[
+/// The whole front end, embedded: the committed trunk build of the
+/// `videoeditor-record-ui` Leptos (CSR/WASM) crate — the shipped binary
+/// stays self-contained and installing from crates.io needs no wasm
+/// toolchain. Regenerate after UI changes with `just ui`.
+const ASSETS: &[(&str, &[u8], &str)] = &[
     (
         "/",
-        include_str!("web/index.html"),
+        include_bytes!("../ui/index.html"),
         "text/html; charset=utf-8",
     ),
     (
         "/style.css",
-        include_str!("web/style.css"),
+        include_bytes!("../ui/style.css"),
         "text/css; charset=utf-8",
     ),
     (
-        "/js/state.js",
-        include_str!("web/js/state.js"),
+        "/videoeditor-record-ui.js",
+        include_bytes!("../ui/videoeditor-record-ui.js"),
         "text/javascript; charset=utf-8",
     ),
     (
-        "/js/mic.js",
-        include_str!("web/js/mic.js"),
-        "text/javascript; charset=utf-8",
-    ),
-    (
-        "/js/record.js",
-        include_str!("web/js/record.js"),
-        "text/javascript; charset=utf-8",
-    ),
-    (
-        "/js/review.js",
-        include_str!("web/js/review.js"),
-        "text/javascript; charset=utf-8",
-    ),
-    (
-        "/js/takes.js",
-        include_str!("web/js/takes.js"),
-        "text/javascript; charset=utf-8",
-    ),
-    (
-        "/js/main.js",
-        include_str!("web/js/main.js"),
-        "text/javascript; charset=utf-8",
+        "/videoeditor-record-ui_bg.wasm",
+        include_bytes!("../ui/videoeditor-record-ui_bg.wasm"),
+        "application/wasm",
     ),
 ];
 
@@ -137,8 +121,12 @@ fn route(
     use tiny_http::Method::{Get, Post};
     match (method, url) {
         (Get, path) if ASSETS.iter().any(|(p, ..)| *p == path) => {
-            let (_, body, mime) = ASSETS.iter().find(|(p, ..)| *p == path).expect("just found");
-            Ok(tiny_http::Response::from_string(*body).with_header(header("content-type", mime)))
+            let (_, body, mime) = ASSETS
+                .iter()
+                .find(|(p, ..)| *p == path)
+                .expect("just found");
+            Ok(tiny_http::Response::from_data(body.to_vec())
+                .with_header(header("content-type", mime)))
         }
         (Get, "/api/episode") => Ok(json(&episode_view(ep)?)),
         (Get, path) if path.starts_with("/api/takes/") => {
