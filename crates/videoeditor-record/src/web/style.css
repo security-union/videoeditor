@@ -29,16 +29,33 @@ aside header .ep { font-size: 12.5px; color: #8b949e; margin-top: 4px; }
 .clip-row .name { font-size: 14px; font-weight: 600; flex: 1; }
 .clip-row .len { font-size: 12px; color: #8b949e; font-variant-numeric: tabular-nums; }
 
-.take-row { padding: 10px 16px; border-bottom: 1px solid #161b22; }
+.take-row { padding: 10px 16px; border-bottom: 1px solid #161b22; cursor: pointer; }
+.take-row:hover { background: #11151c; }
 .take-row.approved { background: #10231a; box-shadow: inset 3px 0 0 #7ee787; }
 .take-row .top { display: flex; align-items: center; gap: 8px; }
+.take-row .chev {
+  color: #58606a; font-size: 13px; width: 12px; flex-shrink: 0;
+  transition: transform 0.25s ease;
+}
+.take-row.open .chev { transform: rotate(90deg); }
 .take-row .file { font-size: 13px; font-weight: 600; flex: 1; }
 .take-row .dur { font-size: 12px; color: #8b949e; font-variant-numeric: tabular-nums; }
-.take-row .meta { margin-top: 5px; font-size: 12px; color: #8b949e; line-height: 1.5; }
+.take-row .meta { margin-top: 5px; font-size: 12px; color: #8b949e; line-height: 1.5; padding-left: 20px; }
 .take-row button { padding: 3px 10px; font-size: 12px; border-radius: 6px; }
 .take-row .play { background: #21262d; color: #e6edf3; }
 .take-row .approve { background: #238636; color: #fff; }
 .take-row .badge { color: #7ee787; font-weight: 700; }
+
+/* disclosure: the review unfolds inside the row (0fr → 1fr animates height) */
+.take-detail {
+  display: grid; grid-template-rows: 0fr;
+  transition: grid-template-rows 0.28s ease;
+}
+.take-detail .detail-inner { overflow: hidden; min-height: 0; padding-left: 20px; }
+.take-row.open .take-detail { grid-template-rows: 1fr; }
+.detail-inner .coaching { list-style: none; margin-top: 8px; font-size: 13px; line-height: 1.7; color: #c9d1d9; }
+.detail-inner .transcript { margin-top: 8px; font-size: 12.5px; color: #8b949e; font-style: italic; }
+.detail-inner .no-review { margin-top: 8px; font-size: 12.5px; color: #58606a; }
 .rail-empty { padding: 16px 20px; font-size: 13px; color: #58606a; display: none; }
 
 /* recording / countdown: nothing competes with the script */

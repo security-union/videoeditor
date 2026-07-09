@@ -13,6 +13,10 @@ function refresh() {
   loadTakes().catch((e) => status('takes: ' + e.message));
 }
 
+// which take is expanded, keyed clip-id/file so re-renders (and coming
+// back to a clip) restore it
+let expanded = null;
+
 async function loadTakes() {
   const c = currentClip();
   const takes = await (await fetch('/api/takes/' + c.id)).json();
@@ -22,9 +26,11 @@ async function loadTakes() {
   list.innerHTML = '';
   for (const t of takes) {
     const row = document.createElement('div');
-    row.className = 'take-row' + (t.approved ? ' approved' : '');
+    const key = `${c.id}/${t.file}`;
+    row.className = 'take-row' + (t.approved ? ' approved' : '') + (key === expanded ? ' open' : '');
     const top = el('div', 'top', '');
     top.append(
+      el('span', 'chev', '›'),
       el('span', 'file', t.file.replace('.mp3', '')),
       el('span', 'dur', fmt(t.duration) + 's'),
       playButton(`/audio/takes/${c.id}/${t.file}`),
@@ -34,9 +40,33 @@ async function loadTakes() {
     row.append(top);
     const meta = takeMeta(t.review);
     if (meta) row.append(el('div', 'meta', meta));
-    if (t.review?.coaching?.length) row.title = t.review.coaching.join('\n');
+    row.append(detail(t));
+    // the whole row is the disclosure control — one open at a time
+    row.onclick = () => {
+      const wasOpen = row.classList.contains('open');
+      document.querySelectorAll('#takesList .take-row.open').forEach((r) => r.classList.remove('open'));
+      expanded = wasOpen ? null : key;
+      if (!wasOpen) row.classList.add('open');
+    };
     list.append(row);
   }
+}
+
+// the expandable review: coaching notes + transcript from the saved analysis
+function detail(t) {
+  const d = el('div', 'take-detail', '');
+  const inner = el('div', 'detail-inner', '');
+  if (t.review) {
+    const ul = document.createElement('ul');
+    ul.className = 'coaching';
+    for (const n of t.review.coaching || []) ul.append(el('li', '', n));
+    inner.append(ul);
+    if (t.review.transcript) inner.append(el('div', 'transcript', `heard: “${t.review.transcript}”`));
+  } else {
+    inner.append(el('div', 'no-review', 'no analysis saved for this take'));
+  }
+  d.append(inner);
+  return d;
 }
 
 // one-line comparison stats from a take's saved coach report
@@ -54,7 +84,8 @@ function takeMeta(r) {
 
 function playButton(url) {
   const b = el('button', 'play', '▶');
-  b.onclick = () => {
+  b.onclick = (e) => {
+    e.stopPropagation();   // don't toggle the row's disclosure
     if (!player.paused && player.dataset.url === url) {
       player.pause();
       b.textContent = '▶';
@@ -72,7 +103,8 @@ function playButton(url) {
 
 function approveButton(c, file) {
   const b = el('button', 'approve', 'approve');
-  b.onclick = async () => {
+  b.onclick = async (e) => {
+    e.stopPropagation();   // don't toggle the row's disclosure
     b.disabled = true;
     const res = await fetch(`/api/approve/${c.id}/${file}`, { method: 'POST' });
     if (!res.ok) {
