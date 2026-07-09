@@ -1,8 +1,9 @@
 [package]
 name = "videoeditor-record-ui"
 description = "Leptos (CSR/WASM) front end for the videoeditor narration recorder — built with trunk, embedded and served by videoeditor-record"
-keywords = ["leptos", "wasm", "audio", "recording", "teleprompter"]
-categories = ["multimedia::audio", "wasm", "gui"]
+# not a standalone crate: its BUILD OUTPUT ships inside videoeditor-record
+# (committed ui/ dist), so consumers get it from there, never from here
+publish = false
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
