@@ -1,0 +1,71 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>videoeditor · recorder</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body class="idle">
+
+<aside class="clips">
+  <header>
+    <h1>videoeditor · recorder</h1>
+    <div class="ep" id="epTitle"></div>
+  </header>
+  <div id="clipList"></div>
+</aside>
+
+<aside class="rail">
+  <header>
+    <h1>takes · newest first</h1>
+    <div class="ep">▶ audition · approve → becomes the clip</div>
+  </header>
+  <div id="takesList"></div>
+  <div class="rail-empty" id="takesEmpty">no takes yet — every recording lands here, kept or not</div>
+</aside>
+
+<main>
+  <header>
+    <div class="which" id="which">—</div>
+    <div class="window" id="windowInfo"></div>
+    <select id="micSelect" title="input device"></select>
+  </header>
+
+  <div id="stage">
+    <div class="inner">
+      <div id="promptText">loading…</div>
+      <div id="reviewCard">
+        <div class="hdr" id="coachHdr">COACH</div>
+        <ul id="coachNotes"></ul>
+        <div id="transcript"></div>
+        <div class="review-actions">
+          <audio id="player" controls></audio>
+          <button id="keepBtn">keep (enter)</button>
+          <button id="retakeBtn">retake (r)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div id="meter">
+      <div class="chan"><span class="lbl">L</span><div class="track"><div class="fill" id="meterL"></div></div></div>
+      <div class="chan"><span class="lbl">R</span><div class="track"><div class="fill" id="meterR"></div></div></div>
+    </div>
+    <div class="controls">
+      <button id="recBtn" title="record / stop (space)">⏺</button>
+      <div id="timer">0.00<span class="lim"> / —</span></div>
+      <div id="status">pick a clip, hit <b>space</b>, read after the countdown</div>
+    </div>
+    <div class="hints">
+      <kbd>space</kbd> record / stop · <kbd>enter</kbd> keep · <kbd>r</kbd> retake ·
+      <kbd>↑</kbd><kbd>↓</kbd> switch clip · raw stereo mic (no browser processing) — watch the meters, stay out of the red ·
+      every take is archived in audio/takes/, kept or not
+    </div>
+  </footer>
+</main>
+
+<div id="countdown">3</div>
+<script type="module" src="/js/main.js"></script>
+</body>
+</html>

@@ -26,7 +26,50 @@ use std::fs;
 use std::path::Path;
 use videoeditor_timeline::{Clip, ClipInfo, Episode, Scene};
 
-const INDEX_HTML: &str = include_str!("index.html");
+/// The whole front end, embedded: plain ES modules, no framework, no
+/// build step — the binary stays self-contained.
+const ASSETS: &[(&str, &str, &str)] = &[
+    (
+        "/",
+        include_str!("web/index.html"),
+        "text/html; charset=utf-8",
+    ),
+    (
+        "/style.css",
+        include_str!("web/style.css"),
+        "text/css; charset=utf-8",
+    ),
+    (
+        "/js/state.js",
+        include_str!("web/js/state.js"),
+        "text/javascript; charset=utf-8",
+    ),
+    (
+        "/js/mic.js",
+        include_str!("web/js/mic.js"),
+        "text/javascript; charset=utf-8",
+    ),
+    (
+        "/js/record.js",
+        include_str!("web/js/record.js"),
+        "text/javascript; charset=utf-8",
+    ),
+    (
+        "/js/review.js",
+        include_str!("web/js/review.js"),
+        "text/javascript; charset=utf-8",
+    ),
+    (
+        "/js/takes.js",
+        include_str!("web/js/takes.js"),
+        "text/javascript; charset=utf-8",
+    ),
+    (
+        "/js/main.js",
+        include_str!("web/js/main.js"),
+        "text/javascript; charset=utf-8",
+    ),
+];
 
 #[derive(Serialize)]
 struct ClipView {
@@ -93,7 +136,10 @@ fn route(
 ) -> Result<tiny_http::Response<std::io::Cursor<Vec<u8>>>> {
     use tiny_http::Method::{Get, Post};
     match (method, url) {
-        (Get, "/") => Ok(html(INDEX_HTML)),
+        (Get, path) if ASSETS.iter().any(|(p, ..)| *p == path) => {
+            let (_, body, mime) = ASSETS.iter().find(|(p, ..)| *p == path).expect("just found");
+            Ok(tiny_http::Response::from_string(*body).with_header(header("content-type", mime)))
+        }
         (Get, "/api/episode") => Ok(json(&episode_view(ep)?)),
         (Get, path) if path.starts_with("/api/takes/") => {
             let id = sanitize_id(&path["/api/takes/".len()..])?;
@@ -327,7 +373,8 @@ fn list_takes(ep: &Episode, id: &str) -> Result<Vec<TakeInfo>> {
             });
         }
     }
-    takes.sort_by(|a, b| a.file.cmp(&b.file));
+    // newest take first; replaced_* (pre-recorder audio) sinks to the bottom
+    takes.sort_by(|a, b| b.file.cmp(&a.file));
     Ok(takes)
 }
 
@@ -683,11 +730,6 @@ fn open_url(url: &str) -> Result<()> {
     let (cmd, args) = ("xdg-open", vec![url]);
     std::process::Command::new(cmd).args(args).spawn()?;
     Ok(())
-}
-
-fn html(body: &str) -> tiny_http::Response<std::io::Cursor<Vec<u8>>> {
-    tiny_http::Response::from_string(body)
-        .with_header(header("content-type", "text/html; charset=utf-8"))
 }
 
 fn json<T: Serialize>(value: &T) -> tiny_http::Response<std::io::Cursor<Vec<u8>>> {

@@ -1,0 +1,119 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0a0a10; color: #e6edf3; height: 100vh; display: flex;
+  font-family: -apple-system, 'Segoe UI', sans-serif; overflow: hidden;
+}
+button { font: inherit; cursor: pointer; border: none; border-radius: 10px; }
+
+/* ── left rails: clips, then takes ─────────────────────────────────── */
+aside {
+  border-right: 1px solid #21262d; display: flex; flex-direction: column;
+  transition: opacity 0.25s;
+}
+aside.clips { width: 280px; min-width: 280px; }
+aside.rail { width: 320px; min-width: 320px; }
+aside header { padding: 18px 20px; border-bottom: 1px solid #21262d; }
+aside header h1 { font-size: 13px; color: #7ee787; letter-spacing: 0.06em; text-transform: uppercase; }
+aside header .ep { font-size: 12.5px; color: #8b949e; margin-top: 4px; }
+#clipList, #takesList { overflow-y: auto; flex: 1; }
+
+.clip-row {
+  padding: 13px 20px; border-bottom: 1px solid #161b22; cursor: pointer;
+  display: flex; align-items: center; gap: 10px;
+}
+.clip-row:hover { background: #11151c; }
+.clip-row.active { background: #16202b; box-shadow: inset 3px 0 0 #7ee787; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: #30363d; flex-shrink: 0; }
+.dot.has-take { background: #7ee787; }
+.dot.too-long { background: #f0883e; }
+.clip-row .name { font-size: 14px; font-weight: 600; flex: 1; }
+.clip-row .len { font-size: 12px; color: #8b949e; font-variant-numeric: tabular-nums; }
+
+.take-row { padding: 10px 16px; border-bottom: 1px solid #161b22; }
+.take-row.approved { background: #10231a; box-shadow: inset 3px 0 0 #7ee787; }
+.take-row .top { display: flex; align-items: center; gap: 8px; }
+.take-row .file { font-size: 13px; font-weight: 600; flex: 1; }
+.take-row .dur { font-size: 12px; color: #8b949e; font-variant-numeric: tabular-nums; }
+.take-row .meta { margin-top: 5px; font-size: 12px; color: #8b949e; line-height: 1.5; }
+.take-row button { padding: 3px 10px; font-size: 12px; border-radius: 6px; }
+.take-row .play { background: #21262d; color: #e6edf3; }
+.take-row .approve { background: #238636; color: #fff; }
+.take-row .badge { color: #7ee787; font-weight: 700; }
+.rail-empty { padding: 16px 20px; font-size: 13px; color: #58606a; display: none; }
+
+/* recording / countdown: nothing competes with the script */
+body.recording aside, body.countdown aside { opacity: 0.2; pointer-events: none; }
+
+/* ── stage: teleprompter, review card ──────────────────────────────── */
+main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+main > header {
+  display: flex; align-items: center; gap: 16px;
+  padding: 14px 26px; border-bottom: 1px solid #21262d;
+}
+main > header .which { font-size: 15px; font-weight: 700; }
+main > header .window { font-size: 13px; color: #8b949e; }
+select {
+  margin-left: auto; background: #161b22; color: #e6edf3;
+  border: 1px solid #30363d; border-radius: 8px; padding: 6px 10px; font-size: 13px;
+  max-width: 340px;
+}
+
+#stage { flex: 1; display: flex; padding: 40px 6%; overflow-y: auto; }
+#stage .inner { margin: auto; width: 100%; max-width: 1000px; }
+#promptText {
+  font-size: 42px; line-height: 1.55; font-weight: 600;
+  color: #f0f6fc; text-wrap: balance; transition: font-size 0.2s, color 0.2s;
+}
+/* review: script shrinks + dims but NEVER hides — read along while listening */
+body.review #promptText, body.uploading #promptText { font-size: 21px; color: #8b949e; }
+
+#reviewCard {
+  display: none; margin-top: 26px; background: #10151d; border: 1px solid #21262d;
+  border-radius: 14px; padding: 20px 24px; font-size: 16px; line-height: 1.7;
+}
+body.review #reviewCard, body.uploading #reviewCard { display: block; }
+#reviewCard .hdr { font-size: 13px; letter-spacing: 0.08em; color: #8b949e; margin-bottom: 8px; }
+#reviewCard .hdr b { color: #7ee787; }
+#coachNotes { list-style: none; }
+#transcript { margin-top: 10px; font-size: 13.5px; color: #8b949e; font-style: italic; }
+.review-actions { display: flex; align-items: center; gap: 14px; margin-top: 16px; }
+.review-actions audio { height: 44px; flex: 1; min-width: 0; }
+.review-actions button { padding: 14px 26px; font-size: 16px; font-weight: 700; }
+#keepBtn { background: #238636; color: #fff; }
+#retakeBtn { background: #21262d; color: #e6edf3; }
+body.uploading .review-actions { pointer-events: none; opacity: 0.6; }
+
+#countdown {
+  position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+  background: rgba(10,10,16,0.88); font-size: 220px; font-weight: 800; color: #7ee787;
+  z-index: 10;
+}
+body.countdown #countdown { display: flex; }
+
+/* ── footer: meters, transport ─────────────────────────────────────── */
+footer { border-top: 1px solid #21262d; padding: 18px 26px 22px; }
+#meter { display: flex; flex-direction: column; gap: 3px; margin-bottom: 14px; }
+.chan { display: flex; align-items: center; gap: 8px; }
+.chan .lbl { font-size: 10px; color: #58606a; width: 10px; font-weight: 700; }
+.chan .track { flex: 1; height: 8px; background: #161b22; border-radius: 4px; overflow: hidden; }
+.chan .fill { height: 100%; width: 0%; background: #7ee787; transition: width 60ms linear; }
+.chan .fill.hot { background: #ff5252; }
+.controls { display: flex; align-items: center; gap: 18px; }
+#recBtn {
+  width: 84px; height: 84px; border-radius: 50%; background: #da3633; color: #fff;
+  font-size: 30px; box-shadow: 0 0 0 6px rgba(218,54,51,0.25);
+}
+body.recording #recBtn {
+  background: #161b22; color: #ff5252;
+  box-shadow: 0 0 0 6px rgba(255,82,82,0.5); animation: pulse 1.2s infinite;
+}
+@keyframes pulse { 50% { box-shadow: 0 0 0 12px rgba(255,82,82,0.15); } }
+#timer { font-size: 34px; font-variant-numeric: tabular-nums; font-weight: 700; min-width: 190px; }
+#timer .lim { font-size: 18px; color: #8b949e; font-weight: 500; }
+#timer.over { color: #ff5252; }
+#status { font-size: 14px; color: #8b949e; flex: 1; }
+kbd {
+  background: #161b22; border: 1px solid #30363d; border-radius: 5px;
+  padding: 1px 7px; font-size: 12px; color: #8b949e;
+}
+.hints { margin-top: 12px; font-size: 12.5px; color: #58606a; }
