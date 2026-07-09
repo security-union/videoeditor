@@ -897,6 +897,7 @@ dependencies = [
  "tiny_http",
  "videoeditor-media",
  "videoeditor-timeline",
+ "videoeditor-voice",
 ]
 
 [[package]]

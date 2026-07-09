@@ -56,7 +56,11 @@ episode-relative. `<!-- comments -->` and unknown `[MARKERS:]` are ignored.
    serves a teleprompter at localhost with a live level meter, writes kept
    takes to `audio/clips/<scene>__<clip>.mp3` (previous audio is archived
    in `audio/takes/`), and fit-checks each take against its scene window.
-   Then READ the ⚠ fit-check warnings. Narration overlap is a
+   After every take a COACH panel reviews it before you keep it: level /
+   clipping checks always; with `ELEVENLABS_API_KEY` set it also
+   transcribes the take (Scribe) and flags dropped script words, ad-libs,
+   pace, dead air, and background noises. Then READ the ⚠ fit-check
+   warnings. Narration overlap is a
    real defect (two voices at once). Recompute: scene duration = clip `at` +
    measured clip length ÷ tempo + hold; re-place downstream `at`s. Re-run
    until clean. Recompute after EVERY voice or text change.

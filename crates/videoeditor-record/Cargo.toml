@@ -17,3 +17,4 @@ serde_json.workspace = true
 tiny_http.workspace = true
 videoeditor-media.workspace = true
 videoeditor-timeline.workspace = true
+videoeditor-voice.workspace = true

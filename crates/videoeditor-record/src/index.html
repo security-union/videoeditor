@@ -80,6 +80,16 @@
   #keepBtn { background: #238636; color: #fff; }
   #retakeBtn { background: #21262d; color: #e6edf3; }
   audio { height: 44px; }
+  #coach {
+    display: none; margin-top: 34px; max-width: 1000px;
+    background: #10151d; border: 1px solid #21262d; border-radius: 14px;
+    padding: 18px 22px; font-size: 16px; line-height: 1.7;
+  }
+  #coach.visible { display: block; }
+  #coach .hdr { font-size: 13px; letter-spacing: 0.08em; color: #8b949e; margin-bottom: 8px; }
+  #coach .hdr b { color: #7ee787; }
+  #coach ul { list-style: none; }
+  #coach .transcript { margin-top: 10px; font-size: 13.5px; color: #8b949e; font-style: italic; }
   kbd {
     background: #161b22; border: 1px solid #30363d; border-radius: 5px;
     padding: 1px 7px; font-size: 12px; color: #8b949e;
@@ -102,7 +112,10 @@
     <select id="micSelect" title="input device"></select>
   </header>
   <div id="prompt">
-    <div id="promptText">loading…</div>
+    <div>
+      <div id="promptText">loading…</div>
+      <div id="coach"></div>
+    </div>
     <div id="countdown">3</div>
   </div>
   <footer>
@@ -248,6 +261,7 @@
       state = 'review';
       $('review').classList.add('visible');
       $('status').textContent = 'listen back — keep it or go again';
+      requestReview(blob);
     };
     recorder.start();
     state = 'recording';
@@ -297,7 +311,36 @@
     state = 'idle';
     blob = null;
     $('review').classList.remove('visible');
+    $('coach').classList.remove('visible');
     $('player').removeAttribute('src');
+  }
+
+  /* ── the coach: level metrics always, script/pace/pause feedback via
+     ElevenLabs Scribe when the server has a key ─────────────────────── */
+  async function requestReview(b) {
+    const c = episode.clips[current];
+    const el = $('coach');
+    el.classList.add('visible');
+    el.innerHTML = '<div class="hdr">COACH · analyzing take…</div>';
+    try {
+      const res = await fetch('/api/review/' + c.id, {
+        method: 'POST',
+        headers: { 'content-type': b.type },
+        body: b,
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const r = await res.json();
+      if (state !== 'review') return;   // user already moved on
+      const acc = r.accuracy_pct != null ? ` · script <b>${r.accuracy_pct.toFixed(0)}%</b>` : '';
+      const pace = r.wps != null ? ` · ${r.wps.toFixed(1)} w/s` : '';
+      el.innerHTML =
+        `<div class="hdr">COACH · <b>${fmt(r.duration)}s</b> / ${fmt(r.window)}s window` +
+        `${acc}${pace} · peak ${r.max_db.toFixed(1)} dB</div>` +
+        '<ul>' + r.coaching.map((n) => `<li>${n}</li>`).join('') + '</ul>' +
+        (r.transcript ? `<div class="transcript">heard: “${r.transcript}”</div>` : '');
+    } catch (err) {
+      el.innerHTML = `<div class="hdr">COACH · unavailable (${err.message})</div>`;
+    }
   }
 
   /* ── keys ─────────────────────────────────────────────────────────── */
