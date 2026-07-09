@@ -14,10 +14,13 @@
 //!
 //! Every take — kept or not — is archived under `audio/takes/<id>/`
 //! the moment it is recorded, and a keep archives the clip it replaces,
-//! so no audio is ever lost to a retake.
+//! so no audio is ever lost to a retake. The UI lists a clip's archived
+//! takes for audition; approving one copies it to `audio/clips/` and
+//! records the pick in `audio/takes/approvals.json`.
 
 use anyhow::{Context, Result, bail};
 use serde::Serialize;
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 use videoeditor_timeline::{Clip, ClipInfo, Episode, Scene};
@@ -91,6 +94,23 @@ fn route(
     match (method, url) {
         (Get, "/") => Ok(html(INDEX_HTML)),
         (Get, "/api/episode") => Ok(json(&episode_view(ep)?)),
+        (Get, path) if path.starts_with("/api/takes/") => {
+            let id = sanitize_id(&path["/api/takes/".len()..])?;
+            Ok(json(&list_takes(ep, &id)?))
+        }
+        // must come before the generic /audio/ arm
+        (Get, path) if path.starts_with("/audio/takes/") => {
+            let rest = &path["/audio/takes/".len()..];
+            let (raw_id, raw_file) = rest
+                .split_once('/')
+                .context("expected /audio/takes/<id>/<file>")?;
+            let id = sanitize_id(raw_id)?;
+            let file = sanitize_take_file(raw_file)?;
+            let bytes = fs::read(ep.root.join("audio/takes").join(&id).join(&file))
+                .with_context(|| format!("no take {file} for {id}"))?;
+            Ok(tiny_http::Response::from_data(bytes)
+                .with_header(header("content-type", "audio/mpeg")))
+        }
         (Get, path) if path.starts_with("/audio/") => {
             let id = sanitize_id(&path["/audio/".len()..])?;
             let file = ep.root.join(format!("audio/clips/{id}.mp3"));
@@ -105,26 +125,28 @@ fn route(
             let mime = content_type(request);
             Ok(json(&review_take(ep, &id, &body, &mime)?))
         }
-        // promote an already-archived take (the review pass stored it)
-        (Post, path) if path.starts_with("/api/keep/") => {
-            let rest = &path["/api/keep/".len()..];
-            let (raw_id, raw_n) = rest
+        // approve an archived take: promote it to the clip + record the pick
+        (Post, path) if path.starts_with("/api/approve/") => {
+            let rest = &path["/api/approve/".len()..];
+            let (raw_id, raw_file) = rest
                 .split_once('/')
-                .context("expected /api/keep/<id>/<take>")?;
+                .context("expected /api/approve/<id>/<file>")?;
             let id = sanitize_id(raw_id)?;
-            let n: u32 = raw_n.parse().context("take number")?;
-            let resp = keep_take(ep, &id, n)?;
-            log_keep(&id, &resp);
+            let file = sanitize_take_file(raw_file)?;
+            let resp = approve_take(ep, &id, &file)?;
+            log_approve(&id, &file, &resp);
             Ok(json(&resp))
         }
-        // fallback: upload + keep in one shot (review never reached the server)
+        // fallback: upload + approve in one shot (review never reached the server)
         (Post, path) if path.starts_with("/api/take/") => {
             let id = sanitize_id(&path["/api/take/".len()..])?;
             let mut body = Vec::new();
             request.as_reader().read_to_end(&mut body)?;
             let mime = content_type(request);
-            let resp = keep_take(ep, &id, store_take(ep, &id, &body, &mime)?)?;
-            log_keep(&id, &resp);
+            let n = store_take(ep, &id, &body, &mime)?;
+            let file = format!("take_{n:03}.mp3");
+            let resp = approve_take(ep, &id, &file)?;
+            log_approve(&id, &file, &resp);
             Ok(json(&resp))
         }
         _ => Ok(tiny_http::Response::from_string("not found").with_status_code(404)),
@@ -205,24 +227,30 @@ fn store_take(ep: &Episode, id: &str, body: &[u8], mime: &str) -> Result<u32> {
     Ok(n)
 }
 
-/// Promote an archived take to the episode's current clip audio: archive
-/// what it replaces, refresh the manifest, and fit-check the result.
-fn keep_take(ep: &Episode, id: &str, n: u32) -> Result<TakeResponse> {
+/// Promote an archived take to the episode's current clip audio and record
+/// it as the approved take for that clip: archive any pre-recorder audio it
+/// replaces, refresh the manifest, and fit-check the result.
+fn approve_take(ep: &Episode, id: &str, file: &str) -> Result<TakeResponse> {
     let (scene, clip) = find_clip(ep, id)?;
-    let take = take_path(ep, id, n);
+    let takes_dir = ep.root.join("audio/takes").join(id);
+    let take = takes_dir.join(file);
     if !take.exists() {
-        bail!("no archived take {n} for {id}");
+        bail!("no archived take {file} for {id}");
     }
 
     let clips_dir = ep.root.join("audio/clips");
     fs::create_dir_all(&clips_dir)?;
     let current = clips_dir.join(format!("{id}.mp3"));
-    if current.exists() {
-        let takes_dir = ep.root.join("audio/takes").join(id);
+    // Archive the current clip only if it isn't itself a copy of an archived
+    // take (no approval on record = pre-recorder audio, e.g. TTS). Approved
+    // takes already live in takes/, so re-archiving them would just pile up
+    // duplicates every time you A/B switch.
+    if current.exists() && !read_approvals(ep).contains_key(id) {
         let m = next_take_number(&takes_dir);
         fs::rename(&current, takes_dir.join(format!("replaced_{m:03}.mp3")))?;
     }
     fs::copy(&take, &current)?;
+    write_approval(ep, id, file)?;
 
     let manifest = rebuild_manifest(ep)?;
     fs::write(
@@ -240,9 +268,64 @@ fn keep_take(ep: &Episode, id: &str, n: u32) -> Result<TakeResponse> {
     })
 }
 
-fn log_keep(id: &str, resp: &TakeResponse) {
+/// clip id → approved take filename, persisted inside the episode
+/// (`audio/takes/approvals.json`) so picks survive restarts and travel
+/// with the repo.
+fn read_approvals(ep: &Episode) -> BTreeMap<String, String> {
+    fs::read_to_string(approvals_path(ep))
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default()
+}
+
+fn write_approval(ep: &Episode, id: &str, file: &str) -> Result<()> {
+    let mut approvals = read_approvals(ep);
+    approvals.insert(id.to_string(), file.to_string());
+    fs::write(
+        approvals_path(ep),
+        serde_json::to_string_pretty(&approvals)?,
+    )?;
+    Ok(())
+}
+
+fn approvals_path(ep: &Episode) -> std::path::PathBuf {
+    ep.root.join("audio/takes/approvals.json")
+}
+
+#[derive(Serialize)]
+struct TakeInfo {
+    file: String,
+    duration: f64,
+    approved: bool,
+}
+
+/// Every archived mp3 for a clip (take_* and replaced_*), sorted by name,
+/// flagged with which one is currently approved.
+fn list_takes(ep: &Episode, id: &str) -> Result<Vec<TakeInfo>> {
+    find_clip(ep, id)?;
+    let dir = ep.root.join("audio/takes").join(id);
+    let approved = read_approvals(ep).get(id).cloned();
+    let mut takes = Vec::new();
+    if let Ok(entries) = fs::read_dir(&dir) {
+        for e in entries.filter_map(|e| e.ok()) {
+            let file = e.file_name().to_string_lossy().to_string();
+            if !file.ends_with(".mp3") {
+                continue;
+            }
+            takes.push(TakeInfo {
+                duration: videoeditor_media::ffprobe_duration(&dir.join(&file))?,
+                approved: approved.as_deref() == Some(file.as_str()),
+                file,
+            });
+        }
+    }
+    takes.sort_by(|a, b| a.file.cmp(&b.file));
+    Ok(takes)
+}
+
+fn log_approve(id: &str, file: &str, resp: &TakeResponse) {
     println!(
-        "record: {id} take kept ({:.2}s / window {:.2}s){}",
+        "record: {id} ← {file} approved ({:.2}s / window {:.2}s){}",
         resp.duration,
         resp.window,
         if resp.fits { "" } else { "  ⚠ too long" }
@@ -259,7 +342,7 @@ struct Pause {
 #[derive(Serialize)]
 struct Review {
     /// Archive number of this take (`audio/takes/<id>/take_NNN.mp3`);
-    /// pass it to `/api/keep/<id>/<take>` to promote without re-uploading.
+    /// approve it via `/api/approve/<id>/take_NNN.mp3` — no re-upload.
     take: u32,
     duration: f64,
     window: f64,
@@ -550,6 +633,20 @@ fn next_take_number(dir: &Path) -> u32 {
         .unwrap_or(1)
 }
 
+/// Take filenames come straight off the URL — allow only `<safe-stem>.mp3`
+/// so they can never traverse out of the clip's takes dir.
+fn sanitize_take_file(raw: &str) -> Result<String> {
+    let stem = raw.strip_suffix(".mp3").unwrap_or("");
+    if stem.is_empty()
+        || !stem
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+    {
+        bail!("invalid take file {raw:?}");
+    }
+    Ok(raw.to_string())
+}
+
 /// Clip ids come straight off the URL — allow only manifest-shaped names so
 /// they can never traverse out of the episode dir.
 fn sanitize_id(raw: &str) -> Result<String> {
@@ -600,6 +697,19 @@ mod tests {
         assert!(sanitize_id("../../etc/passwd").is_err());
         assert!(sanitize_id("a/b").is_err());
         assert!(sanitize_id("a b").is_err());
+    }
+
+    #[test]
+    fn sanitize_take_file_accepts_archive_names_only() {
+        assert_eq!(sanitize_take_file("take_001.mp3").unwrap(), "take_001.mp3");
+        assert_eq!(
+            sanitize_take_file("replaced_002.mp3").unwrap(),
+            "replaced_002.mp3"
+        );
+        assert!(sanitize_take_file(".mp3").is_err());
+        assert!(sanitize_take_file("take_001.wav").is_err());
+        assert!(sanitize_take_file("../take_001.mp3").is_err());
+        assert!(sanitize_take_file("a/b.mp3").is_err());
     }
 
     #[test]

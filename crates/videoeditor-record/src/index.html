@@ -46,18 +46,33 @@
     max-width: 340px;
   }
 
-  #prompt {
-    flex: 1; display: flex; align-items: center; justify-content: center;
-    padding: 40px 8%; position: relative;
-  }
+  #prompt { flex: 1; display: flex; padding: 40px 8%; overflow-y: auto; }
+  #prompt > .inner { margin: auto; width: 100%; max-width: 1000px; }
   #promptText {
-    font-size: 42px; line-height: 1.55; font-weight: 600; max-width: 1000px;
+    font-size: 42px; line-height: 1.55; font-weight: 600;
     color: #f0f6fc; text-wrap: balance;
   }
   #countdown {
-    position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+    position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
     background: rgba(10,10,16,0.88); font-size: 220px; font-weight: 800; color: #7ee787;
   }
+
+  /* ── takes: every archived recording for the current clip ──────────── */
+  #takes { display: none; margin-top: 26px; }
+  #takes.visible { display: block; }
+  #takes .hdr { font-size: 13px; letter-spacing: 0.08em; color: #8b949e; margin-bottom: 8px; }
+  .take-row {
+    display: flex; align-items: center; gap: 14px; padding: 8px 12px;
+    border-radius: 8px; font-size: 14px;
+  }
+  .take-row:hover { background: #11151c; }
+  .take-row.approved { background: #10231a; box-shadow: inset 3px 0 0 #7ee787; }
+  .take-row .file { flex: 0 0 160px; font-weight: 600; }
+  .take-row .dur { color: #8b949e; font-variant-numeric: tabular-nums; flex: 0 0 70px; }
+  .take-row button { padding: 5px 14px; font-size: 13px; }
+  .take-row .play { background: #21262d; color: #e6edf3; }
+  .take-row .approve { background: #238636; color: #fff; }
+  .take-row .badge { color: #7ee787; font-weight: 700; }
 
   footer { border-top: 1px solid #21262d; padding: 18px 26px 22px; }
   #meter { display: flex; flex-direction: column; gap: 3px; margin-bottom: 14px; }
@@ -115,9 +130,13 @@
     <select id="micSelect" title="input device"></select>
   </header>
   <div id="prompt">
-    <div>
+    <div class="inner">
       <div id="promptText">loading…</div>
       <div id="coach"></div>
+      <div id="takes">
+        <div class="hdr">TAKES · <b>▶</b> to audition · approve → becomes the clip</div>
+        <div id="takesList"></div>
+      </div>
     </div>
     <div id="countdown">3</div>
   </div>
@@ -190,6 +209,77 @@
     $('timer').innerHTML = `0.00<span class="lim"> / ${fmt(c.window * c.tempo)}</span>`;
     $('timer').classList.remove('over');
     renderList();
+    loadTakes().catch((e) => ($('status').textContent = 'takes: ' + e.message));
+  }
+
+  /* ── takes: audition any archived take, approve one as the clip ────── */
+  const takesPlayer = new Audio();
+
+  async function loadTakes() {
+    const c = episode.clips[current];
+    const takes = await (await fetch('/api/takes/' + c.id)).json();
+    if (c !== episode.clips[current]) return;   // switched clips mid-fetch
+    $('takes').classList.toggle('visible', takes.length > 0);
+    const list = $('takesList');
+    list.innerHTML = '';
+    for (const t of takes) {
+      const row = document.createElement('div');
+      row.className = 'take-row' + (t.approved ? ' approved' : '');
+      row.append(
+        el('span', 'file', t.file.replace('.mp3', '')),
+        el('span', 'dur', fmt(t.duration) + 's'),
+        playButton(`/audio/takes/${c.id}/${t.file}`),
+      );
+      if (t.approved) row.append(el('span', 'badge', '✓ approved'));
+      else row.append(approveButton(c, t.file));
+      list.append(row);
+    }
+  }
+
+  function playButton(url) {
+    const b = el('button', 'play', '▶');
+    b.onclick = () => {
+      if (!takesPlayer.paused && takesPlayer.dataset.url === url) {
+        takesPlayer.pause();
+        b.textContent = '▶';
+        return;
+      }
+      document.querySelectorAll('#takesList .play').forEach((p) => (p.textContent = '▶'));
+      takesPlayer.src = url;
+      takesPlayer.dataset.url = url;
+      takesPlayer.play();
+      b.textContent = '⏸';
+      takesPlayer.onended = () => (b.textContent = '▶');
+    };
+    return b;
+  }
+
+  function approveButton(c, file) {
+    const b = el('button', 'approve', 'approve');
+    b.onclick = async () => {
+      b.disabled = true;
+      const res = await fetch(`/api/approve/${c.id}/${file}`, { method: 'POST' });
+      if (!res.ok) {
+        $('status').textContent = 'approve failed: ' + (await res.text());
+        b.disabled = false;
+        return;
+      }
+      const info = await res.json();
+      c.take_duration = info.duration;
+      $('status').textContent =
+        `approved ${file} → ${c.id}.mp3` +
+        (info.fits ? ' ✓ fits' : ` ⚠ over the ${fmt(info.window)}s window`) +
+        (info.warnings.length ? ` · ${info.warnings.length} timeline warning(s)` : '');
+      select(current);
+    };
+    return b;
+  }
+
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    e.className = cls;
+    e.textContent = text;
+    return e;
   }
 
   /* ── mic ──────────────────────────────────────────────────────────── */
@@ -251,6 +341,7 @@
   /* ── record flow ─────────────────────────────────────────────────── */
   function beginCountdown() {
     state = 'countdown';
+    takesPlayer.pause();
     resetReview();
     const cd = $('countdown');
     cd.style.display = 'flex';
@@ -303,10 +394,10 @@
     state = 'uploading';
     $('status').textContent = 'saving…';
     const c = episode.clips[current];
-    // review already archived this take → promote it in place; otherwise
+    // review already archived this take → approve it in place; otherwise
     // (review still in flight or failed) upload the blob directly
     const res = reviewTakeN != null
-      ? await fetch(`/api/keep/${c.id}/${reviewTakeN}`, { method: 'POST' })
+      ? await fetch(`/api/approve/${c.id}/take_${String(reviewTakeN).padStart(3, '0')}.mp3`, { method: 'POST' })
       : await fetch('/api/take/' + c.id, {
           method: 'POST',
           headers: { 'content-type': blob.type },
