@@ -69,6 +69,7 @@
   .take-row.approved { background: #10231a; box-shadow: inset 3px 0 0 #7ee787; }
   .take-row .file { flex: 0 0 160px; font-weight: 600; }
   .take-row .dur { color: #8b949e; font-variant-numeric: tabular-nums; flex: 0 0 70px; }
+  .take-row .meta { color: #8b949e; font-size: 12.5px; flex: 1; }
   .take-row button { padding: 5px 14px; font-size: 13px; }
   .take-row .play { background: #21262d; color: #e6edf3; }
   .take-row .approve { background: #238636; color: #fff; }
@@ -228,12 +229,27 @@
       row.append(
         el('span', 'file', t.file.replace('.mp3', '')),
         el('span', 'dur', fmt(t.duration) + 's'),
+        el('span', 'meta', takeMeta(t.review)),
         playButton(`/audio/takes/${c.id}/${t.file}`),
       );
+      if (t.review?.coaching?.length) row.title = t.review.coaching.join('\n');
       if (t.approved) row.append(el('span', 'badge', '✓ approved'));
       else row.append(approveButton(c, t.file));
       list.append(row);
     }
+  }
+
+  // one-line comparison stats from a take's saved coach report
+  function takeMeta(r) {
+    if (!r) return '';
+    const m = [];
+    if (r.accuracy_pct != null) m.push(r.accuracy_pct.toFixed(0) + '% script');
+    if (r.wps != null) m.push(r.wps.toFixed(1) + ' w/s');
+    if (r.max_db != null) m.push('peak ' + r.max_db.toFixed(0) + 'dB');
+    if (r.clipped) m.push('🔴 clipped');
+    if (r.fits === false) m.push('⚠ long');
+    if (r.pauses?.length) m.push('💀 ' + r.pauses.length + ' pause' + (r.pauses.length > 1 ? 's' : ''));
+    return m.join(' · ');
   }
 
   function playButton(url) {
@@ -442,6 +458,7 @@
       });
       if (!res.ok) throw new Error(await res.text());
       const r = await res.json();
+      loadTakes().catch(() => {});      // take + analysis are archived — show it
       if (state !== 'review') return;   // user already moved on
       reviewTakeN = r.take;             // archived server-side — keep promotes it
       const acc = r.accuracy_pct != null ? ` · script <b>${r.accuracy_pct.toFixed(0)}%</b>` : '';

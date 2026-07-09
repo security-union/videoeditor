@@ -14,9 +14,10 @@
 //!
 //! Every take — kept or not — is archived under `audio/takes/<id>/`
 //! the moment it is recorded, and a keep archives the clip it replaces,
-//! so no audio is ever lost to a retake. The UI lists a clip's archived
-//! takes for audition; approving one copies it to `audio/clips/` and
-//! records the pick in `audio/takes/approvals.json`.
+//! so no audio is ever lost to a retake, and each take's coach report is
+//! saved beside it (`take_NNN.json`). The UI lists a clip's archived
+//! takes with their stats for audition; approving one copies it to
+//! `audio/clips/` and records the pick in `audio/takes/approvals.json`.
 
 use anyhow::{Context, Result, bail};
 use serde::Serialize;
@@ -297,10 +298,13 @@ struct TakeInfo {
     file: String,
     duration: f64,
     approved: bool,
+    /// The coach report saved when this take was recorded (`take_NNN.json`),
+    /// if one exists — replaced_* archives and pre-analysis takes have none.
+    review: Option<serde_json::Value>,
 }
 
 /// Every archived mp3 for a clip (take_* and replaced_*), sorted by name,
-/// flagged with which one is currently approved.
+/// flagged with which one is currently approved, with its saved analysis.
 fn list_takes(ep: &Episode, id: &str) -> Result<Vec<TakeInfo>> {
     find_clip(ep, id)?;
     let dir = ep.root.join("audio/takes").join(id);
@@ -312,9 +316,13 @@ fn list_takes(ep: &Episode, id: &str) -> Result<Vec<TakeInfo>> {
             if !file.ends_with(".mp3") {
                 continue;
             }
+            let review = fs::read_to_string(dir.join(&file).with_extension("json"))
+                .ok()
+                .and_then(|s| serde_json::from_str(&s).ok());
             takes.push(TakeInfo {
                 duration: videoeditor_media::ffprobe_duration(&dir.join(&file))?,
                 approved: approved.as_deref() == Some(file.as_str()),
+                review,
                 file,
             });
         }
@@ -453,6 +461,12 @@ fn review_take(ep: &Episode, id: &str, body: &[u8], mime: &str) -> Result<Review
     }
 
     review.coaching = coach(&review);
+    // persist the analysis next to the take it describes — the archive
+    // holds the audio AND its report, not just the audio
+    fs::write(
+        take_path(ep, id, n).with_extension("json"),
+        serde_json::to_string_pretty(&review)?,
+    )?;
     Ok(review)
 }
 
