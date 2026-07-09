@@ -60,9 +60,12 @@
   }
 
   footer { border-top: 1px solid #21262d; padding: 18px 26px 22px; }
-  #meter { width: 100%; height: 14px; background: #161b22; border-radius: 7px; overflow: hidden; margin-bottom: 14px; }
-  #meterFill { height: 100%; width: 0%; background: #7ee787; transition: width 60ms linear; }
-  #meterFill.hot { background: #ff5252; }
+  #meter { display: flex; flex-direction: column; gap: 3px; margin-bottom: 14px; }
+  .chan { display: flex; align-items: center; gap: 8px; }
+  .chan .lbl { font-size: 10px; color: #58606a; width: 10px; font-weight: 700; }
+  .chan .track { flex: 1; height: 8px; background: #161b22; border-radius: 4px; overflow: hidden; }
+  .chan .fill { height: 100%; width: 0%; background: #7ee787; transition: width 60ms linear; }
+  .chan .fill.hot { background: #ff5252; }
   .controls { display: flex; align-items: center; gap: 18px; }
   #recBtn {
     width: 84px; height: 84px; border-radius: 50%; background: #da3633; color: #fff;
@@ -119,7 +122,10 @@
     <div id="countdown">3</div>
   </div>
   <footer>
-    <div id="meter"><div id="meterFill"></div></div>
+    <div id="meter">
+      <div class="chan"><span class="lbl">L</span><div class="track"><div class="fill" id="meterL"></div></div></div>
+      <div class="chan"><span class="lbl">R</span><div class="track"><div class="fill" id="meterR"></div></div></div>
+    </div>
     <div class="controls">
       <button id="recBtn" title="record / stop (space)">⏺</button>
       <div id="timer">0.00<span class="lim"> / —</span></div>
@@ -132,16 +138,18 @@
     </div>
     <div class="hints">
       <kbd>space</kbd> record / stop · <kbd>enter</kbd> keep · <kbd>r</kbd> retake ·
-      <kbd>↑</kbd><kbd>↓</kbd> switch clip · raw mic (no browser processing) — watch the meter, stay out of the red
+      <kbd>↑</kbd><kbd>↓</kbd> switch clip · raw stereo mic (no browser processing) — watch the meters, stay out of the red ·
+      every take is archived in audio/takes/, kept or not
     </div>
   </footer>
 </main>
 <script>
   let episode = null, current = 0;
   let mediaStream = null, recorder = null, chunks = [], blob = null;
-  let audioCtx = null, analyser = null;
+  let audioCtx = null, analyserL = null, analyserR = null;
   let state = 'idle';            // idle | countdown | recording | review | uploading
   let recStart = 0, timerId = null;
+  let reviewTakeN = null;        // archive number the review pass stored this take under
 
   const $ = (id) => document.getElementById(id);
   const fmt = (s) => s.toFixed(2);
@@ -190,16 +198,20 @@
     mediaStream = await navigator.mediaDevices.getUserMedia({
       audio: {
         deviceId: deviceId ? { exact: deviceId } : undefined,
-        channelCount: 1,
+        channelCount: 2,           // interface sends a stereo mix — take it as-is
         echoCancellation: false,   // raw voice: no call-style processing
         noiseSuppression: false,
         autoGainControl: false,
       },
     });
     audioCtx = audioCtx || new AudioContext();
-    analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 1024;
-    audioCtx.createMediaStreamSource(mediaStream).connect(analyser);
+    const splitter = audioCtx.createChannelSplitter(2);
+    analyserL = audioCtx.createAnalyser();
+    analyserR = audioCtx.createAnalyser();
+    analyserL.fftSize = analyserR.fftSize = 1024;
+    audioCtx.createMediaStreamSource(mediaStream).connect(splitter);
+    splitter.connect(analyserL, 0);
+    splitter.connect(analyserR, 1);
     meterLoop();
     await fillDevices();
   }
@@ -219,15 +231,19 @@
   }
   $('micSelect').onchange = (e) => initMic(e.target.value);
 
+  let meterRunning = false;
   function meterLoop() {
-    const buf = new Float32Array(analyser.fftSize);
+    if (meterRunning) return;   // one loop; reads whichever analysers are current
+    meterRunning = true;
+    const buf = new Float32Array(1024);
     (function tick() {
-      analyser.getFloatTimeDomainData(buf);
-      let peak = 0;
-      for (const v of buf) peak = Math.max(peak, Math.abs(v));
-      const fill = $('meterFill');
-      fill.style.width = Math.min(100, peak * 130) + '%';
-      fill.classList.toggle('hot', peak > 0.85);
+      for (const [analyser, fill] of [[analyserL, $('meterL')], [analyserR, $('meterR')]]) {
+        analyser.getFloatTimeDomainData(buf);
+        let peak = 0;
+        for (const v of buf) peak = Math.max(peak, Math.abs(v));
+        fill.style.width = Math.min(100, peak * 130) + '%';
+        fill.classList.toggle('hot', peak > 0.85);
+      }
       requestAnimationFrame(tick);
     })();
   }
@@ -287,11 +303,15 @@
     state = 'uploading';
     $('status').textContent = 'saving…';
     const c = episode.clips[current];
-    const res = await fetch('/api/take/' + c.id, {
-      method: 'POST',
-      headers: { 'content-type': blob.type },
-      body: blob,
-    });
+    // review already archived this take → promote it in place; otherwise
+    // (review still in flight or failed) upload the blob directly
+    const res = reviewTakeN != null
+      ? await fetch(`/api/keep/${c.id}/${reviewTakeN}`, { method: 'POST' })
+      : await fetch('/api/take/' + c.id, {
+          method: 'POST',
+          headers: { 'content-type': blob.type },
+          body: blob,
+        });
     if (!res.ok) {
       $('status').textContent = 'save failed: ' + (await res.text());
       state = 'review';
@@ -310,6 +330,7 @@
   function resetReview() {
     state = 'idle';
     blob = null;
+    reviewTakeN = null;
     $('review').classList.remove('visible');
     $('coach').classList.remove('visible');
     $('player').removeAttribute('src');
@@ -331,10 +352,11 @@
       if (!res.ok) throw new Error(await res.text());
       const r = await res.json();
       if (state !== 'review') return;   // user already moved on
+      reviewTakeN = r.take;             // archived server-side — keep promotes it
       const acc = r.accuracy_pct != null ? ` · script <b>${r.accuracy_pct.toFixed(0)}%</b>` : '';
       const pace = r.wps != null ? ` · ${r.wps.toFixed(1)} w/s` : '';
       el.innerHTML =
-        `<div class="hdr">COACH · <b>${fmt(r.duration)}s</b> / ${fmt(r.window)}s window` +
+        `<div class="hdr">COACH · take ${String(r.take).padStart(3, '0')} · <b>${fmt(r.duration)}s</b> / ${fmt(r.window)}s window` +
         `${acc}${pace} · peak ${r.max_db.toFixed(1)} dB</div>` +
         '<ul>' + r.coaching.map((n) => `<li>${n}</li>`).join('') + '</ul>' +
         (r.transcript ? `<div class="transcript">heard: “${r.transcript}”</div>` : '');

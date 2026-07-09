@@ -8,16 +8,19 @@
 //! permission prompts, and live metering are already solved there.
 //! localhost counts as a secure context, so the mic works without TLS.
 //! The browser uploads webm/opus (Chrome) or mp4/aac (Safari); ffmpeg
-//! transcodes to the same mp3 44.1 kHz mono the TTS path produces.
+//! transcodes to stereo mp3 44.1 kHz — final assembly normalizes every
+//! narration input to stereo before mixing, so stereo and mono TTS
+//! clips coexist fine.
 //!
-//! Every kept take is archived under `audio/takes/<id>/` before the
-//! current clip is replaced, so no take is ever lost to a retake.
+//! Every take — kept or not — is archived under `audio/takes/<id>/`
+//! the moment it is recorded, and a keep archives the clip it replaces,
+//! so no audio is ever lost to a retake.
 
 use anyhow::{Context, Result, bail};
 use serde::Serialize;
 use std::fs;
 use std::path::Path;
-use videoeditor_timeline::{ClipInfo, Episode};
+use videoeditor_timeline::{Clip, ClipInfo, Episode, Scene};
 
 const INDEX_HTML: &str = include_str!("index.html");
 
@@ -58,7 +61,7 @@ pub fn run(ep: &Episode, port: u16, open_browser: bool) -> Result<()> {
     let url = format!("http://{addr}");
     println!("record: teleprompter at {url}  (Ctrl+C to stop)");
     println!(
-        "record: kept takes replace audio/clips/<id>.mp3; previous audio is archived in audio/takes/"
+        "record: kept takes replace audio/clips/<id>.mp3; every take (kept or not) is archived in audio/takes/"
     );
     if open_browser {
         let _ = open_url(&url);
@@ -102,18 +105,26 @@ fn route(
             let mime = content_type(request);
             Ok(json(&review_take(ep, &id, &body, &mime)?))
         }
+        // promote an already-archived take (the review pass stored it)
+        (Post, path) if path.starts_with("/api/keep/") => {
+            let rest = &path["/api/keep/".len()..];
+            let (raw_id, raw_n) = rest
+                .split_once('/')
+                .context("expected /api/keep/<id>/<take>")?;
+            let id = sanitize_id(raw_id)?;
+            let n: u32 = raw_n.parse().context("take number")?;
+            let resp = keep_take(ep, &id, n)?;
+            log_keep(&id, &resp);
+            Ok(json(&resp))
+        }
+        // fallback: upload + keep in one shot (review never reached the server)
         (Post, path) if path.starts_with("/api/take/") => {
             let id = sanitize_id(&path["/api/take/".len()..])?;
             let mut body = Vec::new();
             request.as_reader().read_to_end(&mut body)?;
             let mime = content_type(request);
-            let resp = save_take(ep, &id, &body, &mime)?;
-            println!(
-                "record: {id} take kept ({:.2}s / window {:.2}s){}",
-                resp.duration,
-                resp.window,
-                if resp.fits { "" } else { "  ⚠ too long" }
-            );
+            let resp = keep_take(ep, &id, store_take(ep, &id, &body, &mime)?)?;
+            log_keep(&id, &resp);
             Ok(json(&resp))
         }
         _ => Ok(tiny_http::Response::from_string("not found").with_status_code(404)),
@@ -150,19 +161,26 @@ fn episode_view(ep: &Episode) -> Result<EpisodeView> {
     })
 }
 
-/// Transcode an uploaded take to the pipeline's mp3 format, archive what it
-/// replaces, refresh the manifest, and fit-check the result.
-fn save_take(ep: &Episode, id: &str, body: &[u8], mime: &str) -> Result<TakeResponse> {
-    let (scene, clip) = ep
-        .scenes
+fn find_clip<'a>(ep: &'a Episode, id: &str) -> Result<(&'a Scene, &'a Clip)> {
+    ep.scenes
         .iter()
         .flat_map(|s| s.clips.iter().map(move |c| (s, c)))
         .find(|(s, c)| format!("{}__{}", s.name, c.name) == id)
-        .with_context(|| format!("unknown clip id {id}"))?;
+        .with_context(|| format!("unknown clip id {id}"))
+}
 
-    let clips_dir = ep.root.join("audio/clips");
+fn take_path(ep: &Episode, id: &str, n: u32) -> std::path::PathBuf {
+    ep.root
+        .join("audio/takes")
+        .join(id)
+        .join(format!("take_{n:03}.mp3"))
+}
+
+/// Transcode an upload to the archive format (stereo mp3 44.1 kHz) and
+/// store it permanently as the next `take_NNN.mp3`. Returns the take number.
+fn store_take(ep: &Episode, id: &str, body: &[u8], mime: &str) -> Result<u32> {
+    find_clip(ep, id)?; // reject ids that aren't in the episode
     let takes_dir = ep.root.join("audio/takes").join(id);
-    fs::create_dir_all(&clips_dir)?;
     fs::create_dir_all(&takes_dir)?;
 
     // raw upload → temp file (extension helps ffmpeg pick a demuxer)
@@ -170,27 +188,39 @@ fn save_take(ep: &Episode, id: &str, body: &[u8], mime: &str) -> Result<TakeResp
     let raw = takes_dir.join(format!("upload.{ext}"));
     fs::write(&raw, body)?;
 
-    // transcode to the exact format the TTS path produces
-    let take = takes_dir.join(format!("take_{:03}.mp3", next_take_number(&takes_dir)));
+    let n = next_take_number(&takes_dir);
     videoeditor_media::ffmpeg(&[
         "-y",
         "-i",
         raw.to_str().context("path")?,
         "-ac",
-        "1",
+        "2",
         "-ar",
         "44100",
         "-b:a",
-        "128k",
-        take.to_str().context("path")?,
+        "192k",
+        take_path(ep, id, n).to_str().context("path")?,
     ])?;
     fs::remove_file(&raw).ok();
+    Ok(n)
+}
 
-    // archive whatever the kept take replaces, then promote the new one
+/// Promote an archived take to the episode's current clip audio: archive
+/// what it replaces, refresh the manifest, and fit-check the result.
+fn keep_take(ep: &Episode, id: &str, n: u32) -> Result<TakeResponse> {
+    let (scene, clip) = find_clip(ep, id)?;
+    let take = take_path(ep, id, n);
+    if !take.exists() {
+        bail!("no archived take {n} for {id}");
+    }
+
+    let clips_dir = ep.root.join("audio/clips");
+    fs::create_dir_all(&clips_dir)?;
     let current = clips_dir.join(format!("{id}.mp3"));
     if current.exists() {
-        let n = next_take_number(&takes_dir);
-        fs::rename(&current, takes_dir.join(format!("replaced_{n:03}.mp3")))?;
+        let takes_dir = ep.root.join("audio/takes").join(id);
+        let m = next_take_number(&takes_dir);
+        fs::rename(&current, takes_dir.join(format!("replaced_{m:03}.mp3")))?;
     }
     fs::copy(&take, &current)?;
 
@@ -210,6 +240,15 @@ fn save_take(ep: &Episode, id: &str, body: &[u8], mime: &str) -> Result<TakeResp
     })
 }
 
+fn log_keep(id: &str, resp: &TakeResponse) {
+    println!(
+        "record: {id} take kept ({:.2}s / window {:.2}s){}",
+        resp.duration,
+        resp.window,
+        if resp.fits { "" } else { "  ⚠ too long" }
+    );
+}
+
 #[derive(Serialize)]
 struct Pause {
     at: f64,
@@ -219,6 +258,9 @@ struct Pause {
 /// The coach's report on one (not-yet-kept) take.
 #[derive(Serialize)]
 struct Review {
+    /// Archive number of this take (`audio/takes/<id>/take_NNN.mp3`);
+    /// pass it to `/api/keep/<id>/<take>` to promote without re-uploading.
+    take: u32,
     duration: f64,
     window: f64,
     fits: bool,
@@ -236,35 +278,15 @@ struct Review {
     coaching: Vec<String>,
 }
 
-/// Analyze a pending take WITHOUT keeping it: local level metrics via
-/// ffmpeg always; script-accuracy / pacing / dead-air / background-noise
-/// coaching via ElevenLabs Scribe when a key is present.
+/// Archive and analyze a pending take WITHOUT keeping it: the take lands
+/// in `audio/takes/<id>/` permanently (data safety — retakes lose
+/// nothing), then local level metrics via ffmpeg always; script-accuracy
+/// / pacing / dead-air / background-noise coaching via ElevenLabs Scribe
+/// when a key is present.
 fn review_take(ep: &Episode, id: &str, body: &[u8], mime: &str) -> Result<Review> {
-    let (scene, clip) = ep
-        .scenes
-        .iter()
-        .flat_map(|s| s.clips.iter().map(move |c| (s, c)))
-        .find(|(s, c)| format!("{}__{}", s.name, c.name) == id)
-        .with_context(|| format!("unknown clip id {id}"))?;
-
-    let dir = ep.root.join("audio/takes").join(id);
-    fs::create_dir_all(&dir)?;
-    let ext = if mime.contains("mp4") { "mp4" } else { "webm" };
-    let raw = dir.join(format!("review.{ext}"));
-    let mp3 = dir.join("review.mp3");
-    fs::write(&raw, body)?;
-    videoeditor_media::ffmpeg(&[
-        "-y",
-        "-i",
-        raw.to_str().context("path")?,
-        "-ac",
-        "1",
-        "-ar",
-        "44100",
-        "-b:a",
-        "128k",
-        mp3.to_str().context("path")?,
-    ])?;
+    let (scene, clip) = find_clip(ep, id)?;
+    let n = store_take(ep, id, body, mime)?;
+    let mp3 = take_path(ep, id, n);
 
     let duration = videoeditor_media::ffprobe_duration(&mp3)?;
     let window = scene.duration - clip.at.unwrap_or(0.0);
@@ -278,10 +300,9 @@ fn review_take(ep: &Episode, id: &str, body: &[u8], mime: &str) -> Result<Review
     } else {
         None
     };
-    fs::remove_file(&raw).ok();
-    fs::remove_file(&mp3).ok();
 
     let mut review = Review {
+        take: n,
         duration,
         window,
         fits,
@@ -603,6 +624,7 @@ mod tests {
     #[test]
     fn coach_praises_a_clean_take() {
         let r = Review {
+            take: 1,
             duration: 7.0,
             window: 8.4,
             fits: true,
@@ -626,6 +648,7 @@ mod tests {
     #[test]
     fn coach_flags_clipping_overrun_and_dead_air() {
         let r = Review {
+            take: 2,
             duration: 10.0,
             window: 8.4,
             fits: false,
