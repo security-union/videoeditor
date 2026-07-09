@@ -16,6 +16,9 @@ vertical video out via headless Chrome + ffmpeg + ElevenLabs).
 - `crates/videoeditor-genai` — typed image-generation clients: xAI Grok
   Imagine (`XAI_API_KEY`, reference images) + Google Imagen (`AI_STUDIO`);
   Veo/Grok video is the planned next tenant.
+- `crates/videoeditor-record` — `record` subcommand: local web recorder
+  (teleprompter + MediaRecorder mic capture, tiny_http server); kept takes
+  transcode via ffmpeg into `audio/clips/` in the TTS format.
 - `examples/hello-bench` — smallest end-to-end episode; keep it rendering.
 
 ## Commands

@@ -1,0 +1,318 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>videoeditor · recorder</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a10; color: #e6edf3; height: 100vh; display: flex;
+    font-family: -apple-system, 'Segoe UI', sans-serif; overflow: hidden;
+  }
+  button { font: inherit; cursor: pointer; border: none; border-radius: 10px; }
+
+  /* ── sidebar: clip list ─────────────────────────────────────────── */
+  aside {
+    width: 320px; min-width: 320px; border-right: 1px solid #21262d;
+    display: flex; flex-direction: column;
+  }
+  aside header { padding: 18px 20px; border-bottom: 1px solid #21262d; }
+  aside header h1 { font-size: 15px; color: #7ee787; letter-spacing: 0.06em; }
+  aside header .ep { font-size: 13px; color: #8b949e; margin-top: 4px; }
+  #clipList { overflow-y: auto; flex: 1; }
+  .clip-row {
+    padding: 13px 20px; border-bottom: 1px solid #161b22; cursor: pointer;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .clip-row:hover { background: #11151c; }
+  .clip-row.active { background: #16202b; box-shadow: inset 3px 0 0 #7ee787; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: #30363d; flex-shrink: 0; }
+  .dot.has-take { background: #7ee787; }
+  .dot.too-long { background: #f0883e; }
+  .clip-row .name { font-size: 14px; font-weight: 600; flex: 1; }
+  .clip-row .len { font-size: 12px; color: #8b949e; font-variant-numeric: tabular-nums; }
+
+  /* ── main: teleprompter + controls ──────────────────────────────── */
+  main { flex: 1; display: flex; flex-direction: column; }
+  main > header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 14px 26px; border-bottom: 1px solid #21262d;
+  }
+  main > header .which { font-size: 15px; font-weight: 700; }
+  main > header .window { font-size: 13px; color: #8b949e; }
+  select {
+    margin-left: auto; background: #161b22; color: #e6edf3;
+    border: 1px solid #30363d; border-radius: 8px; padding: 6px 10px; font-size: 13px;
+    max-width: 340px;
+  }
+
+  #prompt {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    padding: 40px 8%; position: relative;
+  }
+  #promptText {
+    font-size: 42px; line-height: 1.55; font-weight: 600; max-width: 1000px;
+    color: #f0f6fc; text-wrap: balance;
+  }
+  #countdown {
+    position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+    background: rgba(10,10,16,0.88); font-size: 220px; font-weight: 800; color: #7ee787;
+  }
+
+  footer { border-top: 1px solid #21262d; padding: 18px 26px 22px; }
+  #meter { width: 100%; height: 14px; background: #161b22; border-radius: 7px; overflow: hidden; margin-bottom: 14px; }
+  #meterFill { height: 100%; width: 0%; background: #7ee787; transition: width 60ms linear; }
+  #meterFill.hot { background: #ff5252; }
+  .controls { display: flex; align-items: center; gap: 18px; }
+  #recBtn {
+    width: 84px; height: 84px; border-radius: 50%; background: #da3633; color: #fff;
+    font-size: 30px; box-shadow: 0 0 0 6px rgba(218,54,51,0.25);
+  }
+  #recBtn.recording { background: #161b22; color: #ff5252; box-shadow: 0 0 0 6px rgba(255,82,82,0.5); animation: pulse 1.2s infinite; }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 12px rgba(255,82,82,0.15); } }
+  #timer { font-size: 34px; font-variant-numeric: tabular-nums; font-weight: 700; min-width: 190px; }
+  #timer .lim { font-size: 18px; color: #8b949e; font-weight: 500; }
+  #timer.over { color: #ff5252; }
+  #status { font-size: 14px; color: #8b949e; flex: 1; }
+  .review { display: none; align-items: center; gap: 14px; }
+  .review.visible { display: flex; }
+  .review button { padding: 14px 26px; font-size: 16px; font-weight: 700; }
+  #keepBtn { background: #238636; color: #fff; }
+  #retakeBtn { background: #21262d; color: #e6edf3; }
+  audio { height: 44px; }
+  kbd {
+    background: #161b22; border: 1px solid #30363d; border-radius: 5px;
+    padding: 1px 7px; font-size: 12px; color: #8b949e;
+  }
+  .hints { margin-top: 12px; font-size: 12.5px; color: #58606a; }
+</style>
+</head>
+<body>
+<aside>
+  <header>
+    <h1>videoeditor · recorder</h1>
+    <div class="ep" id="epTitle"></div>
+  </header>
+  <div id="clipList"></div>
+</aside>
+<main>
+  <header>
+    <div class="which" id="which">—</div>
+    <div class="window" id="windowInfo"></div>
+    <select id="micSelect" title="input device"></select>
+  </header>
+  <div id="prompt">
+    <div id="promptText">loading…</div>
+    <div id="countdown">3</div>
+  </div>
+  <footer>
+    <div id="meter"><div id="meterFill"></div></div>
+    <div class="controls">
+      <button id="recBtn" title="record / stop (space)">⏺</button>
+      <div id="timer">0.00<span class="lim"> / —</span></div>
+      <div id="status">pick a clip, hit <b>space</b>, read after the countdown</div>
+      <div class="review" id="review">
+        <audio id="player" controls></audio>
+        <button id="keepBtn">keep (enter)</button>
+        <button id="retakeBtn">retake (r)</button>
+      </div>
+    </div>
+    <div class="hints">
+      <kbd>space</kbd> record / stop · <kbd>enter</kbd> keep · <kbd>r</kbd> retake ·
+      <kbd>↑</kbd><kbd>↓</kbd> switch clip · raw mic (no browser processing) — watch the meter, stay out of the red
+    </div>
+  </footer>
+</main>
+<script>
+  let episode = null, current = 0;
+  let mediaStream = null, recorder = null, chunks = [], blob = null;
+  let audioCtx = null, analyser = null;
+  let state = 'idle';            // idle | countdown | recording | review | uploading
+  let recStart = 0, timerId = null;
+
+  const $ = (id) => document.getElementById(id);
+  const fmt = (s) => s.toFixed(2);
+
+  async function boot() {
+    episode = await (await fetch('/api/episode')).json();
+    $('epTitle').textContent = episode.title;
+    renderList();
+    select(0);
+    await initMic();
+  }
+
+  function renderList() {
+    const list = $('clipList');
+    list.innerHTML = '';
+    episode.clips.forEach((c, i) => {
+      const row = document.createElement('div');
+      row.className = 'clip-row' + (i === current ? ' active' : '');
+      const fits = c.take_duration != null && c.take_duration / c.tempo <= c.window + 0.005;
+      const dot = c.take_duration == null ? '' : (fits ? 'has-take' : 'too-long');
+      row.innerHTML = `<div class="dot ${dot}"></div>
+        <div class="name">${c.scene} / ${c.clip}</div>
+        <div class="len">${c.take_duration != null ? fmt(c.take_duration) + 's' : '—'}</div>`;
+      row.onclick = () => { if (state === 'idle' || state === 'review') select(i); };
+      list.appendChild(row);
+    });
+  }
+
+  function select(i) {
+    current = i;
+    resetReview();
+    const c = episode.clips[i];
+    $('which').textContent = `${c.scene} / ${c.clip}`;
+    $('windowInfo').textContent =
+      `window ${fmt(c.window)}s at tempo ${c.tempo}` +
+      (c.take_duration != null ? ` · current take ${fmt(c.take_duration)}s` : ' · no take yet');
+    $('promptText').textContent = c.text;
+    $('timer').innerHTML = `0.00<span class="lim"> / ${fmt(c.window * c.tempo)}</span>`;
+    $('timer').classList.remove('over');
+    renderList();
+  }
+
+  /* ── mic ──────────────────────────────────────────────────────────── */
+  async function initMic(deviceId) {
+    if (mediaStream) mediaStream.getTracks().forEach((t) => t.stop());
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        deviceId: deviceId ? { exact: deviceId } : undefined,
+        channelCount: 1,
+        echoCancellation: false,   // raw voice: no call-style processing
+        noiseSuppression: false,
+        autoGainControl: false,
+      },
+    });
+    audioCtx = audioCtx || new AudioContext();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 1024;
+    audioCtx.createMediaStreamSource(mediaStream).connect(analyser);
+    meterLoop();
+    await fillDevices();
+  }
+
+  async function fillDevices() {
+    const devices = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audioinput');
+    const sel = $('micSelect');
+    const activeId = mediaStream?.getAudioTracks()[0]?.getSettings().deviceId;
+    sel.innerHTML = '';
+    devices.forEach((d) => {
+      const o = document.createElement('option');
+      o.value = d.deviceId;
+      o.textContent = d.label || 'microphone';
+      if (d.deviceId === activeId) o.selected = true;
+      sel.appendChild(o);
+    });
+  }
+  $('micSelect').onchange = (e) => initMic(e.target.value);
+
+  function meterLoop() {
+    const buf = new Float32Array(analyser.fftSize);
+    (function tick() {
+      analyser.getFloatTimeDomainData(buf);
+      let peak = 0;
+      for (const v of buf) peak = Math.max(peak, Math.abs(v));
+      const fill = $('meterFill');
+      fill.style.width = Math.min(100, peak * 130) + '%';
+      fill.classList.toggle('hot', peak > 0.85);
+      requestAnimationFrame(tick);
+    })();
+  }
+
+  /* ── record flow ─────────────────────────────────────────────────── */
+  function beginCountdown() {
+    state = 'countdown';
+    resetReview();
+    const cd = $('countdown');
+    cd.style.display = 'flex';
+    let n = 3;
+    cd.textContent = n;
+    const iv = setInterval(() => {
+      n -= 1;
+      if (n === 0) {
+        clearInterval(iv);
+        cd.style.display = 'none';
+        startRecording();
+      } else cd.textContent = n;
+    }, 700);
+  }
+
+  function startRecording() {
+    chunks = [];
+    const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/mp4';
+    recorder = new MediaRecorder(mediaStream, { mimeType: mime });
+    recorder.ondataavailable = (e) => chunks.push(e.data);
+    recorder.onstop = () => {
+      blob = new Blob(chunks, { type: recorder.mimeType });
+      $('player').src = URL.createObjectURL(blob);
+      state = 'review';
+      $('review').classList.add('visible');
+      $('status').textContent = 'listen back — keep it or go again';
+    };
+    recorder.start();
+    state = 'recording';
+    $('recBtn').classList.add('recording');
+    $('status').textContent = 'recording… space to stop';
+    recStart = performance.now();
+    const limit = episode.clips[current].window * episode.clips[current].tempo;
+    timerId = setInterval(() => {
+      const s = (performance.now() - recStart) / 1000;
+      $('timer').innerHTML = `${fmt(s)}<span class="lim"> / ${fmt(limit)}</span>`;
+      $('timer').classList.toggle('over', s > limit);
+    }, 50);
+  }
+
+  function stopRecording() {
+    recorder.stop();
+    clearInterval(timerId);
+    $('recBtn').classList.remove('recording');
+  }
+
+  async function keepTake() {
+    if (!blob) return;
+    state = 'uploading';
+    $('status').textContent = 'saving…';
+    const c = episode.clips[current];
+    const res = await fetch('/api/take/' + c.id, {
+      method: 'POST',
+      headers: { 'content-type': blob.type },
+      body: blob,
+    });
+    if (!res.ok) {
+      $('status').textContent = 'save failed: ' + (await res.text());
+      state = 'review';
+      return;
+    }
+    const info = await res.json();
+    c.take_duration = info.duration;
+    resetReview();
+    $('status').textContent =
+      `saved ${fmt(info.duration)}s` +
+      (info.fits ? ' ✓ fits' : ` ⚠ over the ${fmt(info.window)}s window — retake or stretch the scene`) +
+      (info.warnings.length ? ` · ${info.warnings.length} timeline warning(s), re-run tts fit-check` : '');
+    select(current);
+  }
+
+  function resetReview() {
+    state = 'idle';
+    blob = null;
+    $('review').classList.remove('visible');
+    $('player').removeAttribute('src');
+  }
+
+  /* ── keys ─────────────────────────────────────────────────────────── */
+  $('recBtn').onclick = () => (state === 'recording' ? stopRecording() : state === 'idle' || state === 'review' ? beginCountdown() : null);
+  $('keepBtn').onclick = keepTake;
+  $('retakeBtn').onclick = beginCountdown;
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') { e.preventDefault(); $('recBtn').onclick(); }
+    else if (e.key === 'Enter' && state === 'review') keepTake();
+    else if (e.key === 'r' && state === 'review') beginCountdown();
+    else if ((e.key === 'ArrowDown' || e.key === 'ArrowRight') && state === 'idle') select(Math.min(current + 1, episode.clips.length - 1));
+    else if ((e.key === 'ArrowUp' || e.key === 'ArrowLeft') && state === 'idle') select(Math.max(current - 1, 0));
+  });
+
+  boot().catch((e) => ($('status').textContent = 'mic init failed: ' + e.message));
+</script>
+</body>
+</html>
