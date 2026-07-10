@@ -1,6 +1,6 @@
 //! Reference-video analysis: the "understand the viral" half of the tool.
-//! Extracts audio → ElevenLabs Scribe STT (word timestamps) → ffmpeg scene-cut
-//! detection → analysis.json + a human-readable timing table.
+//! Extracts audio → STT (whisper by default; word timestamps) → ffmpeg
+//! scene-cut detection → analysis.json + a human-readable timing table.
 
 use anyhow::{Context, Result};
 use serde_json::json;
@@ -20,7 +20,7 @@ pub fn run(video: &Path, out: Option<&Path>, threshold: f32) -> Result<()> {
     let audio = out_dir.join("audio.mp3");
     videoeditor_media::extract_audio(&video, &audio)?;
 
-    println!("analyze: transcribing (ElevenLabs Scribe)…");
+    println!("analyze: transcribing ({})…", videoeditor_voice::stt_name());
     let transcript = videoeditor_voice::stt(&audio)?;
     fs::write(
         out_dir.join("transcript.json"),

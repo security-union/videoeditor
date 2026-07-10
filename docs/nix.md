@@ -15,6 +15,13 @@ everywhere if you prefer your own. Templates and formats ship inside the
 package as a store path (`VIDEOEDITOR_ROOT` baked into the wrapper), so they
 can never go stale.
 
+The pinned speech stack: whisper.cpp (`whisper-cli` + ggml-base.en weights)
+for speech-to-text and a piper voice (en_US-lessac-medium via sherpa-onnx)
+for narration, so `tts`, `analyze`, and the recorder's coach all run
+offline with no API key. `WHISPER_MODEL` / `PIPER_VOICE` override the baked
+models; the elevenlabs backends remain an opt-in (`tts: elevenlabs`
+frontmatter, `VIDEOEDITOR_STT=elevenlabs`).
+
 ## Every way to run it
 
 ```bash

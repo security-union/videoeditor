@@ -10,7 +10,7 @@ READMEs) points here; if another doc disagrees with this one, this one wins.
 ```
 videoeditor new <dir> [--format meme-benchmark|blank]   scaffold (renders as-is)
 videoeditor parse <dir>        resolved plan as JSON (scene starts, clips)
-videoeditor tts <dir>          narration via ElevenLabs (needs ELEVENLABS_API_KEY)
+videoeditor tts <dir>          narration: local piper voice (default, offline) or ElevenLabs
 videoeditor record <dir>       record narration YOURSELF: local web teleprompter + mic
 videoeditor render <dir> [--scene name]      headless-Chrome frames → scene mp4s
 videoeditor assemble <dir>     concat + narration@offsets + music → build/final.mp4
@@ -30,7 +30,8 @@ each scene resolves to (episode dir → `packs:` frontmatter →
 ```markdown
 ---
 title: My Short
-voice_id: pNInz6obpgDQGcFmaJgB   # "Adam", an ElevenLabs public preset
+tts: piper                        # narration backend: piper (local, default) | elevenlabs
+voice_id: pNInz6obpgDQGcFmaJgB   # elevenlabs only — "Adam", a public preset
 packs: ../my-brand-pack           # optional shared template layers
 music: assets/music/bed.mp3       # optional; skipped with a note if missing
 ---
@@ -57,9 +58,10 @@ episode-relative. `<!-- comments -->` and unknown `[MARKERS:]` are ignored.
    takes to `audio/clips/<scene>__<clip>.mp3` (previous audio is archived
    in `audio/takes/`), and fit-checks each take against its scene window.
    After every take a COACH panel reviews it before you keep it: level /
-   clipping checks always; with `ELEVENLABS_API_KEY` set it also
-   transcribes the take (Scribe) and flags dropped script words, ad-libs,
-   pace, dead air, and background noises. Then READ the ⚠ fit-check
+   clipping checks always; it also transcribes the take (whisper, local
+   and default — ElevenLabs Scribe via `VIDEOEDITOR_STT=elevenlabs`) and
+   flags dropped script words, ad-libs, pace, dead air, and (Scribe only)
+   background noises. Then READ the ⚠ fit-check
    warnings. Narration overlap is a
    real defect (two voices at once). Recompute: scene duration = clip `at` +
    measured clip length ÷ tempo + hold; re-place downstream `at`s. Re-run
@@ -95,9 +97,9 @@ Display snippets are minimal but honest versions of the real bench code.
 stiff constructions. Simple English; speak at most ONE rounded number per
 beat and never read stat strings aloud — the screen holds the digits. Add
 human stakes. Don't rush: let beats breathe; duration follows pace. Dunk the
-loser explicitly — longest rant, shortest mercy. TTS: low stability reads
-livelier; never `atempo` ≥ 1.2 (squeezed pauses sound robotic); write
-flowing sentences — fragments read staccato.
+loser explicitly — longest rant, shortest mercy. TTS: on elevenlabs, low
+stability reads livelier; never `atempo` ≥ 1.2 (squeezed pauses sound
+robotic); write flowing sentences — fragments read staccato.
 
 **Visuals**: one moving element per beat — sequential motion reads clean.
 Anything the viewer must read holds ≥1.5s; tables ~3s; scoreboards ~4–5s.
@@ -136,13 +138,19 @@ compose the blocks.
   inserting a scene shifts them; re-render or rename.
 - Moving a clip between scenes renames its audio key
   (`<scene>__<clip>.mp3`) — `mv` the file to keep a good take.
-- TTS takes vary run-to-run at low stability — re-roll a slow take
-  (`tts <dir> --clip <name> --force`) before rewriting script text.
+- ElevenLabs takes vary run-to-run at low stability — re-roll a slow take
+  (`tts <dir> --clip <name> --force`) before rewriting script text. Piper
+  is deterministic: same text, same take.
 - Iterate visuals on ONE scene (`render --scene X`); full renders come last.
 
 ## Env
 
-- `ELEVENLABS_API_KEY` — required for `tts`/`analyze` only.
+- Speech is local by default — no key needed. `tts:` frontmatter (or
+  `VIDEOEDITOR_TTS`) picks the narration backend, `VIDEOEDITOR_STT` the
+  transcription one (`whisper` default, `elevenlabs` opt-in for both).
+- `WHISPER_MODEL` / `PIPER_VOICE` — the local models; the nix install and
+  dev shell pin them, override to swap voice or model size.
+- `ELEVENLABS_API_KEY` — only for the elevenlabs backends.
 - `XAI_API_KEY` — `image --provider grok` (the default; takes `--ref` images).
 - `AI_STUDIO` (or `GEMINI_API_KEY`) — `image --provider imagen` (safety-filtered,
   no references; rejections say so — reroute those prompts to grok).

@@ -1,19 +1,89 @@
-//! ElevenLabs voice I/O: text-to-speech (one MP3 per `[CLIP:]`, name-keyed,
-//! plus a `clips.json` manifest with probed durations) and Scribe
-//! speech-to-text for reference-video transcription.
+//! Voice I/O: text-to-speech (one MP3 per `[CLIP:]`, name-keyed, plus a
+//! `clips.json` manifest with probed durations) and speech-to-text for
+//! reference-video transcription and take coaching.
+//!
+//! Two backends each, local by default:
+//!
+//! - TTS: **piper** (default — a piper voice via sherpa-onnx, no API key) or
+//!   **elevenlabs**. Picked by frontmatter `tts:`, then `VIDEOEDITOR_TTS`.
+//! - STT: **whisper** (default — whisper.cpp, no API key) or **elevenlabs**
+//!   (Scribe). Picked by `VIDEOEDITOR_STT`.
+//!
+//! Both STT backends return the same transcript shape:
+//! `{"text": …, "words": [{"type":"word","text","start","end"}, …]}`.
 
-use anyhow::{Context, Result, bail};
+mod elevenlabs;
+mod piper;
+mod whisper;
+
+pub use elevenlabs::api_key;
+
+use anyhow::{Result, bail};
 use serde_json::Value;
 use std::env;
 use std::fs;
-use std::io::Read;
 use std::path::Path;
 use videoeditor_timeline::{ClipInfo, Episode, Meta};
 
-pub fn api_key() -> Result<String> {
-    env::var("ELEVENLABS_API_KEY")
-        .or_else(|_| env::var("ELEVENLAB"))
-        .context("set ELEVENLABS_API_KEY (your ElevenLabs API key)")
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum TtsBackend {
+    Piper,
+    ElevenLabs,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum SttBackend {
+    Whisper,
+    ElevenLabs,
+}
+
+/// Resolve the TTS backend: frontmatter `tts:` → `VIDEOEDITOR_TTS` → piper.
+pub fn tts_backend(meta: &Meta) -> Result<TtsBackend> {
+    let name = meta
+        .tts
+        .clone()
+        .or_else(|| env::var("VIDEOEDITOR_TTS").ok())
+        .unwrap_or_else(|| "piper".to_string());
+    match name.as_str() {
+        "piper" => Ok(TtsBackend::Piper),
+        "elevenlabs" => Ok(TtsBackend::ElevenLabs),
+        other => bail!("unknown TTS backend {other:?} — use \"piper\" or \"elevenlabs\""),
+    }
+}
+
+/// Resolve the STT backend: `VIDEOEDITOR_STT` → whisper.
+pub fn stt_backend() -> Result<SttBackend> {
+    match env::var("VIDEOEDITOR_STT").as_deref() {
+        Err(_) | Ok("whisper") => Ok(SttBackend::Whisper),
+        Ok("elevenlabs") => Ok(SttBackend::ElevenLabs),
+        Ok(other) => bail!("unknown STT backend {other:?} — use \"whisper\" or \"elevenlabs\""),
+    }
+}
+
+/// Human-readable name of the resolved STT backend (for progress lines).
+pub fn stt_name() -> &'static str {
+    match stt_backend() {
+        Ok(SttBackend::Whisper) => "whisper",
+        Ok(SttBackend::ElevenLabs) => "elevenlabs",
+        Err(_) => "unknown",
+    }
+}
+
+/// Can `stt()` run right now (binary + model present, or API key set)?
+pub fn stt_available() -> bool {
+    match stt_backend() {
+        Ok(SttBackend::Whisper) => whisper::available(),
+        Ok(SttBackend::ElevenLabs) => api_key().is_ok(),
+        Err(_) => false,
+    }
+}
+
+/// Transcribe an audio file (word-level timestamps) with the resolved backend.
+pub fn stt(audio: &Path) -> Result<Value> {
+    match stt_backend()? {
+        SttBackend::Whisper => whisper::stt(audio),
+        SttBackend::ElevenLabs => elevenlabs::stt(audio),
+    }
 }
 
 /// Generate narration clips for every `[CLIP:]` (skips existing files unless
@@ -28,12 +98,14 @@ pub fn run(ep: &Episode, only_clip: Option<&str>, force: bool) -> Result<()> {
         return Ok(());
     }
 
-    let voice = ep
-        .meta
-        .voice_id
-        .as_deref()
-        .context("frontmatter needs voice_id: for TTS")?;
-    let key = api_key()?;
+    let backend = tts_backend(&ep.meta)?;
+    println!(
+        "tts: backend {}",
+        match backend {
+            TtsBackend::Piper => "piper (local)",
+            TtsBackend::ElevenLabs => "elevenlabs",
+        }
+    );
     let mut manifest: Vec<ClipInfo> = Vec::new();
 
     for scene in &ep.scenes {
@@ -46,7 +118,10 @@ pub fn run(ep: &Episode, only_clip: Option<&str>, force: bool) -> Result<()> {
                     bail!("clip {id} has no narration text");
                 }
                 println!("tts: {id} ({} chars)", clip.text.len());
-                synth(&key, voice, &ep.meta, &clip.text, &path)?;
+                match backend {
+                    TtsBackend::Piper => piper::synth(&clip.text, &path)?,
+                    TtsBackend::ElevenLabs => elevenlabs::synth(&ep.meta, &clip.text, &path)?,
+                }
             }
             if path.exists() {
                 manifest.push(ClipInfo {
@@ -72,81 +147,13 @@ pub fn run(ep: &Episode, only_clip: Option<&str>, force: bool) -> Result<()> {
     Ok(())
 }
 
-fn synth(key: &str, voice: &str, meta: &Meta, text: &str, out: &Path) -> Result<()> {
-    let url =
-        format!("https://api.elevenlabs.io/v1/text-to-speech/{voice}?output_format=mp3_44100_128");
-    let resp = ureq::post(&url)
-        .set("xi-api-key", key)
-        .send_json(serde_json::json!({
-            "text": text,
-            "model_id": meta.model_id,
-            "voice_settings": {
-                "stability": meta.voice_stability,
-                "similarity_boost": meta.voice_similarity,
-                "style": meta.voice_style,
-                "use_speaker_boost": true
-            }
-        }));
-    let resp = match resp {
-        Ok(r) => r,
-        Err(ureq::Error::Status(code, r)) => {
-            bail!(
-                "ElevenLabs TTS {code}: {}",
-                r.into_string().unwrap_or_default()
-            )
-        }
-        Err(e) => return Err(e.into()),
-    };
-    let mut bytes = Vec::new();
-    resp.into_reader().read_to_end(&mut bytes)?;
-    fs::write(out, bytes)?;
-    Ok(())
-}
-
-/// Transcribe an audio file with ElevenLabs Scribe (word-level timestamps).
-pub fn stt(audio: &Path) -> Result<Value> {
-    let key = api_key()?;
-    let bytes = fs::read(audio)?;
-    let boundary = "----videoeditorboundary7d1c9a2f";
-    let mut body = Vec::new();
-    for (name, value) in [
-        ("model_id", "scribe_v1"),
-        ("timestamps_granularity", "word"),
-    ] {
-        body.extend_from_slice(
-            format!(
-                "--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{value}\r\n"
-            )
-            .as_bytes(),
-        );
+/// Is `bin` runnable — an existing path, or a name found on `$PATH`?
+pub(crate) fn find_in_path(bin: &str) -> bool {
+    let p = Path::new(bin);
+    if p.components().count() > 1 {
+        return p.exists();
     }
-    body.extend_from_slice(
-        format!(
-            "--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"audio.mp3\"\r\nContent-Type: audio/mpeg\r\n\r\n"
-        )
-        .as_bytes(),
-    );
-    body.extend_from_slice(&bytes);
-    body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
-
-    let resp = ureq::post("https://api.elevenlabs.io/v1/speech-to-text")
-        .set("xi-api-key", &key)
-        .set(
-            "content-type",
-            &format!("multipart/form-data; boundary={boundary}"),
-        )
-        .send_bytes(&body);
-    let resp = match resp {
-        Ok(r) => r,
-        Err(ureq::Error::Status(code, r)) => {
-            bail!(
-                "ElevenLabs STT {code}: {}",
-                r.into_string().unwrap_or_default()
-            )
-        }
-        Err(e) => return Err(e.into()),
-    };
-    let mut s = String::new();
-    resp.into_reader().read_to_string(&mut s)?;
-    Ok(serde_json::from_str(&s)?)
+    env::var_os("PATH")
+        .map(|paths| env::split_paths(&paths).any(|dir| dir.join(bin).exists()))
+        .unwrap_or(false)
 }

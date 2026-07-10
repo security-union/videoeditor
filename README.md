@@ -10,7 +10,9 @@ from markdown + SVG placeholders. This strip is actual output.*
 - **Rust** orchestrates everything (`videoeditor`, one binary).
 - **Web tech** does the animation: scenes are HTML templates rendered
   frame-by-frame by headless Chrome as pure functions of `(data, t)`.
-- **ffmpeg** does the heavy lifting; **ElevenLabs** voices the narration.
+- **ffmpeg** does the heavy lifting; **local speech models** voice the
+  narration and transcribe (piper + whisper.cpp, no API key), with
+  ElevenLabs as an opt-in upgrade.
 - **Built to be driven by [Claude Code](https://claude.com/claude-code)** —
   scaffolds wire the session up automatically.
 
@@ -26,8 +28,9 @@ from markdown + SVG placeholders. This strip is actual output.*
 ## Install
 
 With [nix](https://install.determinate.systems) (preferred — pins the binary,
-ffmpeg, and the render browser from the committed lockfile; details and every
-run variant in [docs/nix.md](docs/nix.md)):
+ffmpeg, the render browser, and the local speech stack (whisper.cpp STT +
+a piper voice) from the committed lockfile; details and every run variant
+in [docs/nix.md](docs/nix.md)):
 
 ```bash
 curl -fsSL https://install.determinate.systems/nix | sh -s -- install   # once
@@ -38,9 +41,12 @@ Without nix: `cargo install videoeditor`, then bring ffmpeg
 (`brew/apt/dnf install ffmpeg`) and Chrome (system install is auto-detected;
 `CHROME_BIN` overrides). macOS and Linux; on Windows use WSL.
 
-Voicing needs an `ELEVENLABS_API_KEY`
+Everything runs keyless by default: narration uses a bundled local piper
+voice, transcription uses bundled whisper.cpp. Prefer ElevenLabs voices?
+Set `tts: elevenlabs` in the script frontmatter with an `ELEVENLABS_API_KEY`
 ([elevenlabs.io](https://elevenlabs.io) → profile → API keys; free tier is
-plenty). Everything except `tts`/`analyze` runs keyless.
+plenty). Non-nix installs bring their own whisper.cpp/sherpa-onnx for the
+local stack (see `videoeditor guide`, Env section).
 
 ## Your first video
 
@@ -72,7 +78,7 @@ anything costs money. Or skip the wizard and ask in your own words:
 ```
 script.md ──parse──► timeline plan
    │
-   ├─ videoeditor tts       [CLIP:] → ElevenLabs → audio/clips/ + audio/clips.json
+   ├─ videoeditor tts       [CLIP:] → piper (or ElevenLabs) → audio/clips/ + audio/clips.json
    ├─ videoeditor render    [SCENE:] → Chrome frames → ffmpeg → build/scenes/
    └─ videoeditor assemble  concat + narration@offsets + music → build/final.mp4
 ```

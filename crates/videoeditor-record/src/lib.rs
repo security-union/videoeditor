@@ -393,7 +393,8 @@ struct Review {
     mean_db: f64,
     max_db: f64,
     clipped: bool,
-    /// None = no ELEVENLABS_API_KEY; level/timing coaching still runs.
+    /// None = no STT backend available (whisper binary+model, or
+    /// ELEVENLABS_API_KEY); level/timing coaching still runs.
     transcript: Option<String>,
     accuracy_pct: Option<f64>,
     missing: Vec<String>,
@@ -407,8 +408,8 @@ struct Review {
 /// Archive and analyze a pending take WITHOUT keeping it: the take lands
 /// in `audio/takes/<id>/` permanently (data safety — retakes lose
 /// nothing), then local level metrics via ffmpeg always; script-accuracy
-/// / pacing / dead-air / background-noise coaching via ElevenLabs Scribe
-/// when a key is present.
+/// / pacing / dead-air / background-noise coaching via STT (whisper by
+/// default, ElevenLabs Scribe via VIDEOEDITOR_STT) when available.
 fn review_take(ep: &Episode, id: &str, body: &[u8], mime: &str) -> Result<Review> {
     let (scene, clip) = find_clip(ep, id)?;
     let n = store_take(ep, id, body, mime)?;
@@ -420,9 +421,9 @@ fn review_take(ep: &Episode, id: &str, body: &[u8], mime: &str) -> Result<Review
     let (mean_db, max_db) = audio_levels(&mp3)?;
     let clipped = max_db > -0.2;
 
-    // Scribe is optional — no key, no transcript coaching.
-    let stt = if videoeditor_voice::api_key().is_ok() {
-        Some(videoeditor_voice::stt(&mp3).context("ElevenLabs STT")?)
+    // STT is optional — no backend, no transcript coaching.
+    let stt = if videoeditor_voice::stt_available() {
+        Some(videoeditor_voice::stt(&mp3).context("speech-to-text")?)
     } else {
         None
     };
