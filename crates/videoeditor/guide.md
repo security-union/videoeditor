@@ -43,12 +43,18 @@ Narration text until the next marker.
 
 [SCENE: body | template=code-meme duration=7.0]
 [DATA: code=assets/code/x.rs code_size=34 bench="μ: 1.2ms" bench_at=5.5]
+[SFX: assets/sfx/impact.mp3 | at=5.5 gain=-15]
 [CLIP: body | at=0.2]
 One idea per beat. The screen holds the digits; the voice tells the story.
 ```
 
 Scene `duration` is authoritative. `at` = seconds from scene start. Paths are
 episode-relative. `<!-- comments -->` and unknown `[MARKERS:]` are ignored.
+
+`[SFX:]` mixes a sound effect at `scene.start + at` — no tempo, never gates
+scene durations. `gain` is dB (default 0); keep effects ≈ −15 dB so narration
+always dominates, and land impacts in narration pauses, never over a spoken
+number.
 
 ## The director loop (in order, every time)
 

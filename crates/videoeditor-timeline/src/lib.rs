@@ -16,6 +16,7 @@
 //!
 //! [SCENE: name | template=code-meme duration=6.42]
 //! [DATA: code=assets/code/threads.rs lang=rust bench="μ: 150µS|σ: 50µS" bench_at=5.8]
+//! [SFX: assets/sfx/impact.mp3 | at=5.8 gain=-15]
 //! [CLIP: threads | at=0.19]
 //! Narration text until the next marker.
 //! ```
@@ -75,6 +76,7 @@ pub struct Scene {
     pub start: f64,
     pub data: Map<String, Value>,
     pub clips: Vec<Clip>,
+    pub sfx: Vec<Sfx>,
 }
 
 #[derive(Debug, Serialize)]
@@ -84,6 +86,18 @@ pub struct Clip {
     /// Offset from scene start, seconds. None = after previous clip.
     pub at: Option<f64>,
     pub tempo: f64,
+}
+
+/// A sound effect placed on the timeline (`[SFX: file | at=sec gain=db]`).
+/// Mixed at `scene.start + at`, gain in dB (0 = as authored). Unlike
+/// narration, SFX never gate scene durations and never get tempo applied.
+#[derive(Debug, Serialize)]
+pub struct Sfx {
+    /// Audio file path, relative to the episode root.
+    pub file: String,
+    /// Offset from scene start, seconds.
+    pub at: f64,
+    pub gain_db: f64,
 }
 
 /// One generated narration clip, as recorded in `audio/clips.json`.
@@ -392,6 +406,7 @@ fn parse_scenes(body: &str) -> Result<Vec<Scene>> {
                 start: 0.0,
                 data,
                 clips: vec![],
+                sfx: vec![],
             });
         } else if let Some((_, attrs)) = parse_marker(trimmed, "DATA") {
             let scene = scenes.last_mut().context("[DATA:] before any [SCENE:]")?;
@@ -407,8 +422,21 @@ fn parse_scenes(body: &str) -> Result<Vec<Scene>> {
                 at: attr_f64(&attrs, "at").ok(),
                 tempo: attr_f64(&attrs, "tempo").unwrap_or(1.0),
             });
+        } else if let Some((file, attrs)) = parse_marker(trimmed, "SFX") {
+            // deliberately no flush_clip: an [SFX:] between narration lines
+            // must not split the surrounding clip's text
+            let scene = scenes.last_mut().context("[SFX:] before any [SCENE:]")?;
+            scene.sfx.push(Sfx {
+                at: attr_f64(&attrs, "at").with_context(|| format!("sfx `{file}` missing at="))?,
+                gain_db: if attrs.iter().any(|(k, _)| k == "gain") {
+                    attr_f64(&attrs, "gain").with_context(|| format!("sfx `{file}`"))?
+                } else {
+                    0.0
+                },
+                file,
+            });
         } else if trimmed.starts_with('[') && trimmed.ends_with(']') {
-            // unknown marker ([IMAGE:], [SFX:], comments) — ignored, not narrated
+            // unknown marker ([IMAGE:], comments) — ignored, not narrated
         } else if !trimmed.is_empty() && !trimmed.starts_with('#') {
             clip_text.push(trimmed.to_string());
         }
@@ -532,8 +560,10 @@ X versus Y for TOPIC.
 
 [SCENE: good | template=code-meme duration=6.4]
 [DATA: code=assets/code/good.rs bench="μ: 150µS|σ: 50µS" flat=true]
+[SFX: assets/sfx/impact.mp3 | at=5.8 gain=-15]
 [CLIP: explain | at=0.2 tempo=1.05]
 First line.
+[SFX: assets/sfx/whoosh.mp3 | at=1.2]
 Second line joins the same clip.
 
 [SCENE: outro | template=video-clip duration=2.2]
@@ -578,6 +608,14 @@ Second line joins the same clip.
             good.clips[0].text,
             "First line. Second line joins the same clip."
         );
+
+        // [SFX:] lines attach to the scene without splitting clip text
+        assert_eq!(good.sfx.len(), 2);
+        assert_eq!(good.sfx[0].file, "assets/sfx/impact.mp3");
+        assert_eq!(good.sfx[0].at, 5.8);
+        assert_eq!(good.sfx[0].gain_db, -15.0);
+        assert_eq!(good.sfx[1].file, "assets/sfx/whoosh.mp3");
+        assert_eq!(good.sfx[1].gain_db, 0.0);
 
         let outro = &scenes[2];
         assert!(outro.is_video_clip());
