@@ -147,6 +147,36 @@ pub fn extract_audio(video: &Path, out: &Path) -> Result<()> {
     ])
 }
 
+/// Downmix any audio to 16 kHz mono PCM wav — the input whisper.cpp expects.
+pub fn to_whisper_wav(audio: &Path, out: &Path) -> Result<()> {
+    ffmpeg(&[
+        "-i",
+        audio.to_str().unwrap(),
+        "-ar",
+        "16000",
+        "-ac",
+        "1",
+        "-c:a",
+        "pcm_s16le",
+        out.to_str().unwrap(),
+    ])
+}
+
+/// Encode a wav (e.g. piper TTS output) to the pipeline's mp3 format.
+pub fn wav_to_mp3(wav: &Path, out: &Path) -> Result<()> {
+    ffmpeg(&[
+        "-i",
+        wav.to_str().unwrap(),
+        "-ar",
+        "44100",
+        "-codec:a",
+        "libmp3lame",
+        "-b:a",
+        "128k",
+        out.to_str().unwrap(),
+    ])
+}
+
 /// Detect scene cuts with ffmpeg's `select=gt(scene,threshold)` filter;
 /// returns cut timestamps in seconds.
 pub fn scene_cuts(video: &Path, threshold: f32) -> Result<Vec<f64>> {

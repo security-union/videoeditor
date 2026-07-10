@@ -12,7 +12,11 @@ vertical video out via headless Chrome + ffmpeg + ElevenLabs).
 - `crates/videoeditor-chrome` — CDP driver (long-lived headless Chrome; NEVER
   single-shot `--screenshot`, it hangs on macOS).
 - `crates/videoeditor-media` — all ffmpeg/ffprobe invocations + assembly.
-- `crates/videoeditor-voice` — ElevenLabs TTS/STT (`ELEVENLABS_API_KEY`).
+- `crates/videoeditor-voice` — TTS/STT with two backends each: local
+  default (piper voice via sherpa-onnx; whisper.cpp) and ElevenLabs
+  (`ELEVENLABS_API_KEY`; `tts:` frontmatter / `VIDEOEDITOR_TTS` /
+  `VIDEOEDITOR_STT` select). Local models come from the nix closure
+  (`WHISPER_MODEL`, `PIPER_VOICE`).
 - `crates/videoeditor-genai` — typed image-generation clients: xAI Grok
   Imagine (`XAI_API_KEY`, reference images) + Google Imagen (`AI_STUDIO`);
   Veo/Grok video is the planned next tenant.

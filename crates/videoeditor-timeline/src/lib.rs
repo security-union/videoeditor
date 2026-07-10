@@ -9,7 +9,8 @@
 //! ---
 //! title: My Episode
 //! fps: 30
-//! voice_id: pNInz6obpgDQGcFmaJgB   # "Adam" — an ElevenLabs public preset
+//! tts: piper                       # narration backend: piper (local, default) | elevenlabs
+//! voice_id: pNInz6obpgDQGcFmaJgB   # elevenlabs only — "Adam", a public preset
 //! music: assets/music/bed.mp3
 //! ---
 //!
@@ -52,6 +53,9 @@ pub struct Meta {
     /// Template packs this episode uses (frontmatter `packs:`,
     /// comma-separated paths relative to the episode dir).
     pub packs: Vec<String>,
+    /// Narration backend (frontmatter `tts:`): "piper" | "elevenlabs".
+    /// None = unset; the voice crate resolves the default (piper).
+    pub tts: Option<String>,
     pub voice_id: Option<String>,
     pub model_id: String,
     /// ElevenLabs voice_settings — low stability reads livelier, less robotic.
@@ -285,6 +289,7 @@ fn parse_meta(front: &str) -> Result<Meta> {
     let mut width = 1080u32;
     let mut height = 1920u32;
     let mut packs = Vec::new();
+    let mut tts = None;
     let mut voice_id = None;
     let mut model_id = "eleven_multilingual_v2".to_string();
     let mut voice_stability = 0.4;
@@ -310,6 +315,7 @@ fn parse_meta(front: &str) -> Result<Meta> {
                     .filter(|p| !p.is_empty())
                     .collect()
             }
+            "tts" => tts = Some(v),
             "voice_id" => voice_id = Some(v),
             "model_id" => model_id = v,
             "voice_stability" => voice_stability = v.parse().context("voice_stability")?,
@@ -326,6 +332,7 @@ fn parse_meta(front: &str) -> Result<Meta> {
         width,
         height,
         packs,
+        tts,
         voice_id,
         model_id,
         voice_stability,
@@ -510,6 +517,7 @@ mod tests {
     const SCRIPT: &str = r#"---
 title: Demo
 fps: 30
+tts: elevenlabs
 voice_id: pNInz6obpgDQGcFmaJgB
 music: assets/music/bed.mp3
 ---
@@ -544,6 +552,7 @@ Second line joins the same clip.
         assert_eq!(meta.title, "Demo");
         assert_eq!(meta.fps, 30);
         assert_eq!(meta.width, 1080);
+        assert_eq!(meta.tts.as_deref(), Some("elevenlabs"));
         assert_eq!(meta.voice_id.as_deref(), Some("pNInz6obpgDQGcFmaJgB"));
         assert_eq!(meta.music.as_deref(), Some("assets/music/bed.mp3"));
     }

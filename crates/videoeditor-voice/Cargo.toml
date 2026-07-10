@@ -1,7 +1,7 @@
 [package]
 name = "videoeditor-voice"
-description = "ElevenLabs TTS and STT client for videoeditor: narration synthesis and reference transcription"
-keywords = ["tts", "stt", "elevenlabs", "narration", "video"]
+description = "Voice I/O for videoeditor: local piper TTS + whisper.cpp STT (default) or ElevenLabs, narration synthesis and reference transcription"
+keywords = ["tts", "stt", "whisper", "narration", "video"]
 categories = ["multimedia::audio", "api-bindings"]
 version.workspace = true
 edition.workspace = true

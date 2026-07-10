@@ -121,7 +121,8 @@ should never have to remember the pipeline.
    - Assets: logos/memes/music on hand, or keep the placeholder SVGs?
      Custom look? (`videoeditor templates` to browse; `videoeditor pack init .`
      + templates/CLAUDE.md to author.)
-   - Voice: keep the default preset or their ElevenLabs voice_id?
+   - Voice: keep the local piper default (free, offline), or ElevenLabs
+     (`tts: elevenlabs` + a voice_id + ELEVENLABS_API_KEY)?
 
 4. SCRIPT — write `script.md` per the guide's craft rules. SHOW the user the
    narration beats and get approval BEFORE running tts (it costs API credits).

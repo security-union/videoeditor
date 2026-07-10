@@ -15,8 +15,11 @@ export default async function globalSetup() {
   cpSync(join(__dirname, '..', 'examples', 'hello-bench'), episode, { recursive: true });
 
   const env = { ...process.env };
-  // hermetic + free: level coaching only, no ElevenLabs STT calls
+  // hermetic + deterministic: level coaching only — no ElevenLabs STT
+  // calls, and no local whisper either (it hallucinates words on the
+  // fake mic's tone, which would make coaching output flaky)
   delete env.ELEVENLABS_API_KEY;
+  delete env.WHISPER_MODEL;
 
   const bin = join(__dirname, '..', 'target', 'debug', 'videoeditor');
   server = spawn(bin, ['record', episode, '--port', '4901', '--no-open'], {

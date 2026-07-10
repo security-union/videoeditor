@@ -11,15 +11,16 @@ model_id: eleven_multilingual_v2
 
 <!--
 The starter episode: four scene templates, SVG-only assets (nothing binary,
-nothing licensed), one narration voice ("Adam", an ElevenLabs public preset).
+nothing licensed), one narration voice (the bundled local piper voice by
+default; the voice_id below is "Adam", an ElevenLabs public preset, used
+only with `tts: elevenlabs`).
 
 ⚠ The benchmark numbers below are ILLUSTRATIVE so the demo renders out of the
 box. Before you publish anything real, follow the receipts rule in
 `videoeditor guide`: every
 number on screen comes from a reproducible experiment you actually ran.
 
-Render it:
-  export ELEVENLABS_API_KEY=...   # https://elevenlabs.io
+Render it (no API key — narration uses the bundled local piper voice):
   videoeditor build examples/hello-bench
   open examples/hello-bench/build/final.mp4
 -->

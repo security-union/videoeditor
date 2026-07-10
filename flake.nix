@@ -16,20 +16,36 @@
       systems = [ "aarch64-darwin" "x86_64-darwin" "x86_64-linux" "aarch64-linux" ];
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system:
         f (import nixpkgs { inherit system; overlays = [ rust-overlay.overlays.default ]; }));
+      # Pinned voice models — the local-by-default speech stack:
+      # whisper.cpp STT (ggml weights) + a piper voice for sherpa-onnx TTS.
+      # Shared by the installed package and the dev shell so both transcribe
+      # and narrate offline, no API key.
+      voiceModels = pkgs: {
+        whisper = pkgs.fetchurl {
+          url = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin";
+          hash = "sha256-oDd5yG3zMjB19eeWyyzlAp8A7Ihp7uP9+4l6/jbG0AI=";
+        };
+        piperVoice = pkgs.fetchzip {
+          url = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-lessac-medium.tar.bz2";
+          hash = "sha256-/iu4rTEC7716gmVcemQs4mHcChiyB0zadO4ikPNLzcs=";
+        };
+      };
     in
     {
       # The preferred install path: `nix profile install github:security-union/videoeditor`
       # (or `nix run` it). Builds the pinned workspace and wraps the binary so
-      # EVERY runtime dependency is pinned: ffmpeg on all systems, chromium
+      # EVERY runtime dependency is pinned: ffmpeg, whisper.cpp + sherpa-onnx
+      # (and their models) for local STT/TTS on all systems, chromium
       # (nixpkgs build) on Linux, and playwright's free-licensed Chrome for
       # Testing bundle on macOS — nixpkgs' own `chromium` is Linux-only and
       # `google-chrome` is unfree. CHROME_BIN still overrides everywhere.
       packages = forAllSystems (pkgs:
         let
           lib = pkgs.lib;
-          runtimeDeps = [ pkgs.ffmpeg ]
+          runtimeDeps = [ pkgs.ffmpeg pkgs.whisper-cpp pkgs.sherpa-onnx ]
             ++ lib.optionals pkgs.stdenv.isLinux [ pkgs.chromium ];
           pwBrowsers = pkgs.playwright-driver.browsers-chromium;
+          models = voiceModels pkgs;
         in
         rec {
           videoeditor = pkgs.rustPlatform.buildRustPackage {
@@ -56,7 +72,9 @@
               cp -R crates/videoeditor/templates crates/videoeditor/formats $out/share/videoeditor/
               wrapProgram $out/bin/videoeditor \
                 --prefix PATH : ${lib.makeBinPath runtimeDeps} \
-                --set-default VIDEOEDITOR_ROOT $out/share/videoeditor ${lib.optionalString pkgs.stdenv.isDarwin ''\
+                --set-default VIDEOEDITOR_ROOT $out/share/videoeditor \
+                --set-default WHISPER_MODEL ${models.whisper} \
+                --set-default PIPER_VOICE ${models.piperVoice} ${lib.optionalString pkgs.stdenv.isDarwin ''\
                 --set-default CHROME_BIN "$chromeBin"''}
             '';
             meta = {
@@ -79,6 +97,7 @@
       devShells = forAllSystems (pkgs:
         let
           pwBrowsers = pkgs.playwright-driver.browsers-chromium;
+          models = voiceModels pkgs;
           # one toolchain for host AND wasm: the recorder UI
           # (videoeditor-record-ui) compiles to wasm32-unknown-unknown
           rustToolchain = pkgs.rust-bin.stable.latest.default.override {
@@ -114,6 +133,11 @@
               ffmpeg
               yt-dlp
 
+              # Local speech stack: whisper.cpp STT + piper-voice TTS via
+              # sherpa-onnx (models exported in the shellHook)
+              whisper-cpp
+              sherpa-onnx
+
               # Repo tooling
               git
               just
@@ -129,6 +153,9 @@
               # Playwright e2e (just e2e): pinned browser bundle + resolvable
               # @playwright/test for the config/spec imports.
               export PLAYWRIGHT_BROWSERS_PATH=${pwBrowsers}
+              # Local STT/TTS models, same pins as the installed package.
+              export WHISPER_MODEL="''${WHISPER_MODEL:-${models.whisper}}"
+              export PIPER_VOICE="''${PIPER_VOICE:-${models.piperVoice}}"
               export PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=true
               export NODE_PATH=${pkgs.playwright-test}/lib/node_modules
               # Rendering uses the same pinned browser as the installed

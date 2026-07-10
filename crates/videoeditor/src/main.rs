@@ -27,7 +27,8 @@ struct Cli {
 enum Cmd {
     /// Parse an episode's script.md and print the resolved plan as JSON
     Parse { episode: PathBuf },
-    /// Generate narration clips via ElevenLabs (skips existing clips)
+    /// Generate narration clips — local piper voice by default, or
+    /// ElevenLabs via frontmatter `tts:` (skips existing clips)
     Tts {
         episode: PathBuf,
         /// Regenerate only this clip (scene/clip name)
@@ -48,7 +49,8 @@ enum Cmd {
     Assemble { episode: PathBuf },
     /// Full pipeline: tts + render + assemble
     Build { episode: PathBuf },
-    /// Analyze a reference video: transcript (ElevenLabs STT) + scene cuts
+    /// Analyze a reference video: transcript (whisper STT by default) +
+    /// scene cuts
     Analyze {
         video: PathBuf,
         /// Output directory (default: <video dir>/analysis)
