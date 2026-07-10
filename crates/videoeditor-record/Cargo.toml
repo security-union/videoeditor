@@ -1,0 +1,20 @@
+[package]
+name = "videoeditor-record"
+description = "Local web recorder for videoeditor narration: teleprompter + mic capture in the browser, mp3 takes written straight into the episode"
+keywords = ["audio", "recording", "narration", "voiceover", "video"]
+categories = ["multimedia::audio", "web-programming::http-server"]
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tiny_http.workspace = true
+videoeditor-media.workspace = true
+videoeditor-timeline.workspace = true
+videoeditor-voice.workspace = true

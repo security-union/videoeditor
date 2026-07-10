@@ -1,0 +1,53 @@
+[package]
+name = "videoeditor-record-ui"
+description = "Leptos (CSR/WASM) front end for the videoeditor narration recorder — built with trunk, embedded and served by videoeditor-record"
+# not a standalone crate: its BUILD OUTPUT ships inside videoeditor-record
+# (committed ui/ dist), so consumers get it from there, never from here
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+leptos = { version = "0.8", features = ["csr"] }
+serde.workspace = true
+serde_json.workspace = true
+# pinned to the wasm-bindgen-cli version the nix devshell provides (trunk
+# refuses mismatched versions); bump both together
+wasm-bindgen = "=0.2.121"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+console_error_panic_hook = "0.1"
+web-sys = { version = "0.3", features = [
+  "AnalyserNode",
+  "AudioContext",
+  "AudioNode",
+  "Blob",
+  "BlobEvent",
+  "BlobPropertyBag",
+  "ChannelSplitterNode",
+  "Headers",
+  "HtmlAudioElement",
+  "HtmlSelectElement",
+  "MediaDeviceInfo",
+  "MediaDeviceKind",
+  "MediaDevices",
+  "MediaRecorder",
+  "MediaRecorderOptions",
+  "MediaStream",
+  "MediaStreamAudioSourceNode",
+  "MediaStreamConstraints",
+  "MediaStreamTrack",
+  "MediaTrackConstraints",
+  "MediaTrackSettings",
+  "Navigator",
+  "Performance",
+  "Request",
+  "RequestInit",
+  "Response",
+  "Url",
+  "Window",
+] }

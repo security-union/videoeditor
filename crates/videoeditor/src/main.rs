@@ -90,6 +90,18 @@ enum Cmd {
     /// Print the embedded director's guide: production workflow, script.md
     /// grammar, template authoring — written for AI agents and humans alike
     Guide,
+    /// Record narration takes with your own voice: spawns a local
+    /// web recorder (teleprompter, level meter, per-clip takes) and
+    /// writes kept takes straight into audio/clips/
+    Record {
+        episode: PathBuf,
+        /// Port for the local recorder UI
+        #[arg(long, default_value_t = 4747)]
+        port: u16,
+        /// Don't auto-open the browser
+        #[arg(long)]
+        no_open: bool,
+    },
     /// Generate a still image with a generative model — xAI Grok Imagine
     /// (XAI_API_KEY; accepts reference images) or Google Imagen
     /// (AI_STUDIO/GEMINI_API_KEY; safety-filtered, no references)
@@ -231,6 +243,14 @@ fn main() -> Result<()> {
                 template.as_deref(),
                 &out,
             )?;
+        }
+        Cmd::Record {
+            episode,
+            port,
+            no_open,
+        } => {
+            let ep = load(&episode)?;
+            videoeditor_record::run(&ep, port, !no_open)?;
         }
         Cmd::Image {
             prompt,

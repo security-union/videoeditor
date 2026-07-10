@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>videoeditor · recorder</title>
+<link rel="stylesheet" href="/style.css" integrity="sha384-DHRfdQHTaAfw2dHLaMa393V/R4VyUm8u2Ft1yiYUqv6NHH27TcQFi0GAW+YqyIR6"/>
+
+<script type="module">
+import init, * as bindings from '/videoeditor-record-ui.js';
+const wasm = await init({ module_or_path: '/videoeditor-record-ui_bg.wasm' });
+
+
+window.wasmBindings = bindings;
+
+
+dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
+
+</script>
+<link rel="modulepreload" href="/videoeditor-record-ui.js" crossorigin="anonymous" integrity="sha384-NayKupfrZBz+JWPP17fjanntHakCPYUoyskC9i9+yogaidfILm977xj/9VM6Nk4S"><link rel="preload" href="/videoeditor-record-ui_bg.wasm" crossorigin="anonymous" integrity="sha384-TkZ7Bi5jvHHx1ExCkMomlUPK3qXHYVNNvCeK9BVgMdBr74yVF3ievakqphKUcyzm" as="fetch" type="application/wasm"></head>
+<body class="idle"></body>
+</html>

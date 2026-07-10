@@ -7,6 +7,12 @@ pr_branch_prefix = "release-plz-"
 pr_labels = ["release"]
 publish_timeout = "10m"
 
+# The recorder UI never releases on its own — its trunk build ships inside
+# videoeditor-record's committed ui/ dist.
+[[package]]
+name = "videoeditor-record-ui"
+release = false
+
 # The CLI crate is the user-facing release: it gets the GitHub release + tag.
 [[package]]
 name = "videoeditor"

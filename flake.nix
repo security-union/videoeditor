@@ -3,12 +3,19 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    # rust with the wasm32-unknown-unknown target for the Leptos recorder UI
+    # (nixpkgs' rustc ships host-only std)
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs }:
+  outputs = { self, nixpkgs, rust-overlay }:
     let
       systems = [ "aarch64-darwin" "x86_64-darwin" "x86_64-linux" "aarch64-linux" ];
-      forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
+      forAllSystems = f: nixpkgs.lib.genAttrs systems (system:
+        f (import nixpkgs { inherit system; overlays = [ rust-overlay.overlays.default ]; }));
     in
     {
       # The preferred install path: `nix profile install github:security-union/videoeditor`
@@ -72,6 +79,11 @@
       devShells = forAllSystems (pkgs:
         let
           pwBrowsers = pkgs.playwright-driver.browsers-chromium;
+          # one toolchain for host AND wasm: the recorder UI
+          # (videoeditor-record-ui) compiles to wasm32-unknown-unknown
+          rustToolchain = pkgs.rust-bin.stable.latest.default.override {
+            targets = [ "wasm32-unknown-unknown" ];
+          };
           # `videoeditor` inside the dev shell = cargo run over THIS checkout,
           # so the command always matches the source you're editing (a
           # store-built binary here would silently go stale). First call
@@ -85,12 +97,18 @@
         {
           default = pkgs.mkShell {
             packages = with pkgs; [
-              # Rust toolchain — the orchestrator
-              rustc
-              cargo
-              clippy
-              rustfmt
+              # Rust toolchain — the orchestrator (host + wasm32 targets)
+              rustToolchain
               rust-analyzer
+
+              # Recorder UI: Leptos → wasm. wasm-bindgen-cli must match the
+              # workspace's pinned wasm-bindgen crate — bump them together.
+              trunk
+              wasm-bindgen-cli
+
+              # Recorder e2e: playwright runner + pinned browsers
+              nodejs
+              playwright-test
 
               # Media pipeline
               ffmpeg
@@ -108,6 +126,11 @@
               export VIDEOEDITOR_SRC="$PWD"
               echo "videoeditor dev shell — rustc $(rustc --version | cut -d' ' -f2), ffmpeg $(ffmpeg -version 2>/dev/null | head -1 | cut -d' ' -f3)"
               echo "\`videoeditor\` builds+runs this checkout (cargo run); first call compiles"
+              # Playwright e2e (just e2e): pinned browser bundle + resolvable
+              # @playwright/test for the config/spec imports.
+              export PLAYWRIGHT_BROWSERS_PATH=${pwBrowsers}
+              export PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=true
+              export NODE_PATH=${pkgs.playwright-test}/lib/node_modules
               # Rendering uses the same pinned browser as the installed
               # package: chromium from nixpkgs on Linux (found via PATH),
               # playwright's Chrome for Testing on darwin. CHROME_BIN overrides.

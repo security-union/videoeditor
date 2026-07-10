@@ -11,6 +11,7 @@ READMEs) points here; if another doc disagrees with this one, this one wins.
 videoeditor new <dir> [--format meme-benchmark|blank]   scaffold (renders as-is)
 videoeditor parse <dir>        resolved plan as JSON (scene starts, clips)
 videoeditor tts <dir>          narration via ElevenLabs (needs ELEVENLABS_API_KEY)
+videoeditor record <dir>       record narration YOURSELF: local web teleprompter + mic
 videoeditor render <dir> [--scene name]      headless-Chrome frames → scene mp4s
 videoeditor assemble <dir>     concat + narration@offsets + music → build/final.mp4
 videoeditor build <dir>        tts + render + assemble
@@ -51,7 +52,15 @@ episode-relative. `<!-- comments -->` and unknown `[MARKERS:]` are ignored.
 ## The director loop (in order, every time)
 
 1. **Script** per the craft rules below.
-2. **`tts`** — then READ the ⚠ fit-check warnings. Narration overlap is a
+2. **`tts`** — or **`record`** to perform the narration yourself: it
+   serves a teleprompter at localhost with a live level meter, writes kept
+   takes to `audio/clips/<scene>__<clip>.mp3` (previous audio is archived
+   in `audio/takes/`), and fit-checks each take against its scene window.
+   After every take a COACH panel reviews it before you keep it: level /
+   clipping checks always; with `ELEVENLABS_API_KEY` set it also
+   transcribes the take (Scribe) and flags dropped script words, ad-libs,
+   pace, dead air, and background noises. Then READ the ⚠ fit-check
+   warnings. Narration overlap is a
    real defect (two voices at once). Recompute: scene duration = clip `at` +
    measured clip length ÷ tempo + hold; re-place downstream `at`s. Re-run
    until clean. Recompute after EVERY voice or text change.

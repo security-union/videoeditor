@@ -16,6 +16,21 @@ vertical video out via headless Chrome + ffmpeg + ElevenLabs).
 - `crates/videoeditor-genai` — typed image-generation clients: xAI Grok
   Imagine (`XAI_API_KEY`, reference images) + Google Imagen (`AI_STUDIO`);
   Veo/Grok video is the planned next tenant.
+- `crates/videoeditor-record` — `record` subcommand: local web recorder
+  (tiny_http REST server); takes transcode via ffmpeg into `audio/clips/`.
+  Serves the UI from `ui/` — a COMMITTED trunk build of the next crate.
+  Never edit `ui/` by hand; `just e2e` regenerates it automatically and
+  `just check` fails if it's stale vs the UI source (`ui/.source-hash`).
+  This crate publishes to crates.io WITH the dist — installs need no wasm.
+- `crates/videoeditor-record-ui` — the recorder front end: Leptos (CSR) →
+  wasm via trunk. `publish = false`: not standalone, its build output
+  ships inside videoeditor-record. `nix develop` provides
+  trunk/wasm-bindgen-cli (the `wasm-bindgen` crate pin must match the CLI
+  version — bump together). Regenerate the dist only via the nix
+  toolchain (`nix develop --command just ui`) so bytes stay stable.
+- `e2e/` — Playwright suite for the recorder (`just e2e`, rebuilds the UI
+  first): drives the real binary + real Chromium with a fake mic through
+  record → coach → keep → approve. UI changes are not done until it passes.
 - `examples/hello-bench` — smallest end-to-end episode; keep it rendering.
 
 ## Commands
