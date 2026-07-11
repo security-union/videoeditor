@@ -76,6 +76,30 @@ pub fn run(ep: &Episode) -> Result<()> {
         }
     }
 
+    // sound effects — placed like narration (absolute offset), no tempo.
+    // A missing file is an authoring typo: fail loudly, don't ship silence.
+    for scene in &ep.scenes {
+        for sfx in &scene.sfx {
+            let src = ep.root.join(&sfx.file);
+            if !src.exists() {
+                bail!("sfx {} not found (scene `{}`)", src.display(), scene.name);
+            }
+            let abs_ms = ((scene.start + sfx.at) * 1000.0).round() as i64;
+            let idx = inputs.len();
+            inputs.push(src.display().to_string());
+            let label = format!("s{idx}");
+            let gain = if sfx.gain_db.abs() > 1e-6 {
+                format!("volume={}dB,", sfx.gain_db)
+            } else {
+                String::new()
+            };
+            chains.push(format!(
+                "[{idx}:a]{gain}{norm},adelay={abs_ms}:all=1[{label}]"
+            ));
+            mix_labels.push(label);
+        }
+    }
+
     // native audio from video-clip scenes
     for scene in &ep.scenes {
         if !scene.is_video_clip() {
