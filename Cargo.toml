@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "0.1.1"
+version = "0.2.0"
 edition = "2024"
 rust-version = "1.85"
 license = "MIT"
@@ -21,12 +21,12 @@ tiny_http = "0.12"
 tungstenite = "0.24"
 ureq = { version = "2", features = ["json"] }
 
-videoeditor-chrome = { version = "0.1.1", path = "crates/videoeditor-chrome" }
-videoeditor-genai = { version = "0.1.1", path = "crates/videoeditor-genai" }
-videoeditor-media = { version = "0.1.1", path = "crates/videoeditor-media" }
-videoeditor-record = { version = "0.1.1", path = "crates/videoeditor-record" }
-videoeditor-timeline = { version = "0.1.1", path = "crates/videoeditor-timeline" }
-videoeditor-voice = { version = "0.1.1", path = "crates/videoeditor-voice" }
+videoeditor-chrome = { version = "0.2.0", path = "crates/videoeditor-chrome" }
+videoeditor-genai = { version = "0.2.0", path = "crates/videoeditor-genai" }
+videoeditor-media = { version = "0.2.0", path = "crates/videoeditor-media" }
+videoeditor-record = { version = "0.2.0", path = "crates/videoeditor-record" }
+videoeditor-timeline = { version = "0.2.0", path = "crates/videoeditor-timeline" }
+videoeditor-voice = { version = "0.2.0", path = "crates/videoeditor-voice" }
 
 [profile.release]
 strip = true
